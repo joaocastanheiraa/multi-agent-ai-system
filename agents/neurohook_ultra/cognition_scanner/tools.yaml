@@ -1,0 +1,11 @@
+tools:
+  - name: specialized_knowledge_search
+    description: "Busca informações específicas sobre neurociência da atenção e mecanismos cognitivos na base de conhecimento"
+    type: vector_search
+    parameters:
+      table: knowledge_base
+      metadata_filters:
+        sub_agent_id: Cognition-Scanner
+      sql_filter: "metadata->>'domain' = 'neuroscience' OR metadata->>'domain' = 'cognitive_science' OR metadata->>'domain' = 'attention_mechanisms' OR metadata->>'domain' = 'neural_processing'"
+      limit: 5
+
