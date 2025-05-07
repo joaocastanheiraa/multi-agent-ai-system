@@ -1,0 +1,11 @@
+tools:
+  - name: specialized_knowledge_search
+    description: "Busca informações específicas sobre psicologia da urgência e ativação de prioridade neural"
+    type: vector_search
+    parameters:
+      table: knowledge_base
+      metadata_filters:
+        sub_agent_id: Urgency-Programmer
+      sql_filter: "metadata->>'domain' = 'urgency_psychology' OR metadata->>'domain' = 'temporal_perception' OR metadata->>'domain' = 'decision_acceleration' OR metadata->>'domain' = 'priority_activation'"
+      limit: 5
+
