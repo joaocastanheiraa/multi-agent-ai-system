@@ -1,0 +1,52 @@
+{
+  "agent_id": "PARADIGM-ARCHITECT",
+  "version": "1.0.0",
+  "creation_date": "2025-05-09",
+  "main_agent": {
+    "id": "PARADIGM-ARCHITECT",
+    "name": "PARADIGM-ARCHITECT",
+    "description": "Engenheiro de Transformação Conceitual que cria frameworks persuasivos revolucionários",
+    "knowledge_domains": [
+      "Frameworks de Transformação Paradigmática",
+      "Modelos de Arquitetura Conceitual",
+      "Técnicas de Engenharia de Linguagem Paradigmática",
+      "Metodologias de Legitimação Conceitual"
+    ],
+    "tools_count": 6
+  },
+  "subagents": [
+    {
+      "id": "AXIOM-ARCHAEOLOGIST",
+      "name": "AXIOM-ARCHAEOLOGIST",
+      "description": "Especialista em escavação de pressupostos fundamentais e bloqueios mentais",
+      "domain": "Análise de Pressupostos",
+      "knowledge_domains": [
+        "Análise de Pressupostos",
+        "Bloqueios Mentais",
+        "Gatilhos Emocionais"
+      ],
+      "tools_count": 4
+    }
+  ],
+  "settings": {
+    "embedding_model": "text-embedding-3-small",
+    "vector_store": "supabase",
+    "similarity_threshold": 0.78
+  },
+  "directory_structure": {
+    "main_agent": "agents/PARADIGM-ARCHITECT",
+    "config": "agents/PARADIGM-ARCHITECT/config",
+    "knowledge_base": "agents/PARADIGM-ARCHITECT/knowledge_base",
+    "subagents": {
+      "AXIOM-ARCHAEOLOGIST": {
+        "dir": "agents/PARADIGM-ARCHITECT/AXIOM-ARCHAEOLOGIST",
+        "config": "agents/PARADIGM-ARCHITECT/AXIOM-ARCHAEOLOGIST/config",
+        "knowledge_base": "agents/PARADIGM-ARCHITECT/AXIOM-ARCHAEOLOGIST/knowledge_base"
+      }
+    }
+  },
+  "scripts": {
+    "setup": "scripts/setup_paradigm-architect.sh",
+    "embeddings": "scripts/prepare_paradigm-architect_embeddings.sh"
+  }
+}

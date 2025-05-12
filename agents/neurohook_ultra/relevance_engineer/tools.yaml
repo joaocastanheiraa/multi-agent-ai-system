@@ -1,11 +1,2 @@
-tools:
-  - name: specialized_knowledge_search
-    description: "Busca informações específicas sobre formulação linguística de alto impacto e maximização de relevância percebida"
-    type: vector_search
-    parameters:
-      table: knowledge_base
-      metadata_filters:
-        sub_agent_id: Relevance-Engineer
-      sql_filter: "metadata->>'domain' = 'linguistic_impact' OR metadata->>'domain' = 'self_relevance' OR metadata->>'domain' = 'identity_resonance' OR metadata->>'domain' = 'personal_connection'"
-      limit: 5
-
+null
+...
