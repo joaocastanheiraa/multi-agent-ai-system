@@ -1,13 +1,2 @@
-tools:
-  - name: specialized_knowledge_search
-    description: "Busca informações específicas sobre thresholds de plausibilidade e calibração de credibilidade"
-    type: vector_search
-    parameters:
-      table: knowledge_base
-      metadata_filters:
-        sub_agent_id: Credibility-Calibrator
-      sql_filter: "metadata->>'domain' = 'plausibility' OR metadata->>'domain' = 'credibility' OR metadata->>'domain' = 'belief_thresholds' OR metadata->>'domain' = 'trust_engineering'"
-      limit: 5
-
-
-
+null
+...

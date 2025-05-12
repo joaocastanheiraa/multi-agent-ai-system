@@ -1,143 +1,88 @@
 #!/usr/bin/env python3
-# scripts/upload_to_supabase.py
+# upload_to_supabase.py – Gera embeddings e faz upload para Supabase
 
-import os
-import sys
-import json
-import time
-import argparse
-import openai
-from tqdm import tqdm
-from supabase import create_client
-from dotenv import load_dotenv
-import signal
-import atexit
+import os, json, time, argparse, requests, sys
 
-# Carregar variáveis de ambiente
-load_dotenv()
+try:
+    from tqdm import tqdm
+except ImportError:
 
-# Configuração de argumentos
-parser = argparse.ArgumentParser(description='Upload embeddings para Supabase')
-parser.add_argument('jsonl_file', help='Arquivo JSONL com os dados para embeddings')
-parser.add_argument('--supabase_url', help='URL do Supabase', default=os.environ.get('SUPABASE_URL'))
-parser.add_argument('--supabase_key', help='Chave do Supabase', default=os.environ.get('SUPABASE_KEY'))
-parser.add_argument('--openai_key', help='Chave da OpenAI', default=os.environ.get('OPENAI_API_KEY'))
-parser.add_argument('--model', help='Modelo de embedding', default='text-embedding-ada-002')
-parser.add_argument('--batch_size', type=int, help='Tamanho do lote para processamento', default=10)
-parser.add_argument('--resume', action='store_true', help='Retomar upload de onde parou')
-parser.add_argument('--table', help='Tabela do Supabase', default='knowledge_base')
-args = parser.parse_args()
+    class tqdm:
+        def __init__(self, iterable=None, **kw):
+            self.iterable, self.n, self.total = iterable, 0, len(iterable)
 
-# Verificar argumentos obrigatórios
-if not args.supabase_url or not args.supabase_key:
-    print("❌ ERRO: URL e chave do Supabase são obrigatórios. Configure via variáveis de ambiente ou argumentos.")
-    sys.exit(1)
+        def __iter__(self):
+            for x in self.iterable:
+                yield x
+                self.n += 1
+                if self.n % max(1, self.total // 100) == 0:
+                    print(f"{self.n/self.total:.0%}")
 
-if not args.openai_key:
-    print("❌ ERRO: Chave da OpenAI é obrigatória. Configure via variável de ambiente OPENAI_API_KEY ou argumento --openai_key.")
-    sys.exit(1)
+        def update(self, n=1):
+            self.n += n
 
-# Configurar OpenAI
-openai.api_key = args.openai_key
 
-# Configurar cliente Supabase
-supabase = create_client(args.supabase_url, args.supabase_key)
+def generate_embeddings(texts, model="text-embedding-3-small", api_key=None):
+    api_key = api_key or os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY não definida")
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+    resp = requests.post(
+        "https://api.openai.com/v1/embeddings",
+        headers=headers,
+        json={"input": texts, "model": model},
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(resp.text)
+    return [d["embedding"] for d in resp.json()["data"]]
 
-# Arquivo para acompanhar o progresso
-progress_file = f"{args.jsonl_file}.progress"
 
-# Iniciar de onde parou
-start_from = 0
-if args.resume and os.path.exists(progress_file):
-    with open(progress_file, 'r') as f:
-        try:
-            start_from = int(f.read().strip())
-            print(f"📝 Retomando do item {start_from}")
-        except:
-            print("⚠️ Arquivo de progresso inválido. Iniciando do começo.")
+def upload_to_supabase(rows, url=None, key=None):
+    url, key = url or os.getenv("SUPABASE_URL"), key or os.getenv("SUPABASE_KEY")
+    if not (url and key):
+        raise ValueError("SUPABASE_URL/KEY faltando")
+    headers = {
+        "Content-Type": "application/json",
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+    }
+    total, ok = 0, 0
+    for batch in tqdm(
+        [rows[i : i + 100] for i in range(0, len(rows), 100)], desc="Upload"
+    ):
+        r = requests.post(f"{url}/rest/v1/knowledge_base", headers=headers, json=batch)
+        if r.status_code == 201:
+            ok += len(batch)
+        else:
+            print("⚠️  erro:", r.text[:200])
+        total += len(batch)
+    return ok, total
 
-# Função para salvar progresso
-def save_progress(line_num):
-    with open(progress_file, 'w') as f:
-        f.write(str(line_num))
 
-# Garantir que o progresso seja salvo ao sair
-atexit.register(lambda: print("✅ Progresso salvo. Para retomar, use o argumento --resume."))
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("jsonl_file")
+    p.add_argument("--model", default="text-embedding-3-small")
+    p.add_argument("--openai-key")
+    p.add_argument("--supabase-url")
+    p.add_argument("--supabase-key")
+    p.add_argument("--batch-size", type=int, default=50)
+    a = p.parse_args()
 
-# Manipulador de sinais para salvar progresso ao cancelar
-def signal_handler(sig, frame):
-    print("\n⚙️ Interrompido pelo usuário. Salvando progresso...")
-    sys.exit(0)
+    rows = [json.loads(l) for l in open(a.jsonl_file, encoding="utf-8") if l.strip()]
+    out = []
+    for i in range(0, len(rows), a.batch_size):
+        texts = [r["content"] for r in rows[i : i + a.batch_size]]
+        embs = generate_embeddings(texts, a.model, a.openai_key)
+        for r, e in zip(rows[i : i + a.batch_size], embs):
+            out.append(
+                {"content": r["content"], "embedding": e, "metadata": r["metadata"]}
+            )
+        time.sleep(0.5)
 
-signal.signal(signal.SIGINT, signal_handler)
+    ok, total = upload_to_supabase(out, a.supabase_url, a.supabase_key)
+    print(f"✅  {ok}/{total} linhas enviadas ao Supabase")
 
-# Ler e processar o arquivo JSONL
-with open(args.jsonl_file, 'r') as f:
-    lines = f.readlines()
-    total = len(lines)
-    
-    print(f"📊 Total de itens: {total}")
-    print(f"🔄 Processando em lotes de {args.batch_size}")
-    
-    # Pular itens já processados
-    lines = lines[start_from:]
-    
-    # Criar barra de progresso
-    with tqdm(total=len(lines), initial=0, desc="Processando") as pbar:
-        # Processar em lotes
-        for i in range(0, len(lines), args.batch_size):
-            batch = lines[i:i+args.batch_size]
-            batch_data = []
-            
-            # Preparar dados do lote
-            for line in batch:
-                try:
-                    item = json.loads(line)
-                    batch_data.append(item)
-                except json.JSONDecodeError:
-                    print(f"⚠️ Erro ao decodificar JSON na linha {start_from + i}")
-                    continue
-            
-            # Obter embeddings do lote
-            texts = [item['text'] for item in batch_data]
-            try:
-                response = openai.Embedding.create(
-                    model=args.model,
-                    input=texts
-                )
-                embeddings = [data['embedding'] for data in response['data']]
-            except Exception as e:
-                print(f"❌ Erro ao obter embeddings: {e}")
-                # Salvar progresso antes de sair
-                save_progress(start_from + i)
-                sys.exit(1)
-            
-            # Inserir no Supabase
-            for j, (item, embedding) in enumerate(zip(batch_data, embeddings)):
-                try:
-                    result = supabase.table(args.table).insert({
-                        "content": item['text'],
-                        "embedding": embedding,
-                        "metadata": item['metadata']
-                    }).execute()
-                    
-                    # Verificar se houve erro
-                    if hasattr(result, 'error') and result.error:
-                        print(f"⚠️ Erro ao inserir item {start_from + i + j}: {result.error}")
-                except Exception as e:
-                    print(f"⚠️ Erro ao inserir no Supabase: {e}")
-            
-            # Atualizar barra de progresso
-            pbar.update(len(batch))
-            
-            # Salvar progresso
-            save_progress(start_from + i + len(batch))
-            
-            # Evitar limite de taxa da API
-            time.sleep(0.5)
 
-print("✅ Upload concluído com sucesso!")
-if os.path.exists(progress_file):
-    os.remove(progress_file)
-    print("🧹 Arquivo de progresso removido.")
-
+if __name__ == "__main__":
+    sys.exit(main())
