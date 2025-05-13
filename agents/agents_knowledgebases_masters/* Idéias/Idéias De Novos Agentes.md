@@ -5,6 +5,7 @@
 100 perguntas mais comuns e como responderia
 
 > A base de conhecimento já e pré criada e pré inserida com variáveis
+
 > Usuário preenche as perguntas e automaticamente monta a base de conhecimento do agente dele
 
 
