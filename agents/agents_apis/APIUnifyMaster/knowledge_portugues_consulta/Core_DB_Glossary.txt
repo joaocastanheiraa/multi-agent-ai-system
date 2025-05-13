@@ -1,0 +1,475 @@
+﻿# `Core_DB_Glossary.md`
+
+
+```markdown
+---
+title: "Glossário do Banco de Dados Unificado"
+id: "core_db_glossary_001"
+doc_type: "glossary"
+doc_version: "1.2"
+date_created: "2025-04-23"
+date_updated: "2025-04-23"
+author: "João Castanheira"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Ativo"
+environment: "Produção"
+related_docs: [
+  "core_db_arch_001", 
+  "core_db_design_001", 
+  "platform_integration_strategy_001",
+  "ref_db_schema_details_001",
+  "ref_api_mapping_guide_001"
+]
+tables_in_focus: [] # Aplica-se a todas as tabelas
+embedding_guide_concepts: [
+  "terminologia de banco de dados", 
+  "vocabulário unificado", 
+  "normalização de termos", 
+  "definições técnicas", 
+  "glossário multiplataforma", 
+  "terminologia de transações", 
+  "terminologia de assinaturas", 
+  "terminologia de comissões", 
+  "terminologia de integração", 
+  "mapeamento de conceitos",
+  "abstração de plataforma",
+  "padronização terminológica"
+]
+---
+
+
+# Glossário do Banco de Dados Unificado
+
+
+## Propósito
+
+
+Este glossário estabelece um vocabulário consistente e padronizado para compreender e operar o banco de dados `joaocastanheira_bancodedados`. O objetivo é fornecer uma referência central de termos técnicos, entidades e conceitos que são fundamentais para o funcionamento do sistema, especialmente no contexto de sua arquitetura agnóstica de plataforma.
+
+
+A padronização terminológica é particularmente importante considerando que este banco de dados unifica dados de múltiplas plataformas, cada uma com seu próprio vocabulário e convenções. A terminologia aqui definida representa os conceitos normalizados após o processo de integração descrito em **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md)**.
+
+
+(Ref: Glossário do Banco de Dados, ID core_db_glossary_001)
+
+
+## Termos Fundamentais
+
+
+### A
+
+
+#### Adaptador de Plataforma
+Componente de software responsável por converter dados brutos de uma plataforma específica (como Hotmart ou Kiwify) para o formato normalizado do banco de dados. Implementa uma interface comum que abstrai as diferenças entre APIs. Para detalhes sobre implementação, consulte **[Estratégia de Integração Multiplataforma - Adaptadores Específicos por Plataforma](platform_integration_strategy_001.md#adaptadores-específicos-por-plataforma)**.
+
+
+#### Afiliado
+Participante que promove produtos de terceiros e recebe comissão pelas vendas geradas. No banco de dados, é representado como um registro na tabela `commission_participants` com valor apropriado no campo `source`.
+
+
+#### Armazenamento de Histórico
+Estratégia de design onde mudanças importantes em entidades (como alterações de status) são registradas em tabelas dedicadas de histórico, como `transaction_status_history` e `subscription_status_history`.
+
+
+### C
+
+
+#### Checkout
+Processo de finalização de compra que resulta em uma transação. No contexto do banco de dados, corresponde a um registro na tabela `transactions` que não é parte de uma assinatura recorrente.
+
+
+#### Chunking
+Processo de dividir documentos longos em pedaços menores (chunks) para otimizar a recuperação em sistemas RAG (Retrieval-Augmented Generation). Importante para a indexação eficaz da documentação deste banco de dados.
+
+
+#### Ciclo de Cobrança
+Intervalo entre cobranças recorrentes em uma assinatura. Representado no campo `billing_cycle` da tabela `subscriptions`. Exemplos comuns incluem "MONTHLY" (mensal) e "YEARLY" (anual).
+
+
+#### Cliente
+Entidade que realiza compras ou assina produtos. Representada pela tabela `customers` e identificada de forma única pelo endereço de email normalizado.
+
+
+#### Comissão
+Valor monetário pago a um participante (produtor, afiliado, coprodutor) por uma transação. Registrada na tabela `platform_commission`.
+
+
+#### Coprodutor
+Participante que colabora na criação ou venda de um produto e recebe uma parcela da receita. No banco de dados, é representado como um registro na tabela `commission_participants` com valor apropriado no campo `source`.
+
+
+### D
+
+
+#### Desnormalização
+Processo de adicionar redundância controlada a um esquema normalizado para melhorar a performance de leitura em consultas específicas. Técnica aplicada seletivamente neste banco de dados para campos frequentemente consultados.
+
+
+### E
+
+
+#### Embedding
+Representação vetorial de texto ou dados em um espaço multidimensional, capturando o significado semântico para buscas de similaridade em sistemas RAG. Usado para indexar e consultar eficientemente a documentação deste banco de dados.
+
+
+#### ETL Pipeline
+Processo (Extract, Transform, Load) utilizado para extrair dados das plataformas de origem, transformá-los para o modelo unificado e carregá-los no banco de dados. Implementado conforme a **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md)**.
+
+
+#### Evento de Plataforma
+Notificação enviada por uma plataforma externa (via webhook ou outro mecanismo) informando sobre uma ocorrência significativa, como uma nova venda, mudança de status, ou cancelamento de assinatura. Estes eventos são normalizados pelo sistema de integração antes de afetar o banco de dados. O processamento destes eventos é detalhado em **[Estratégia de Integração Multiplataforma - Processo de Normalização](platform_integration_strategy_001.md#processo-de-normalização)**.
+
+
+### G
+
+
+#### Gateway de Pagamento
+Sistema responsável pelo processamento de pagamentos. No contexto deste banco de dados, refere-se à plataforma que processou a transação (ex: "Hotmart", "Kiwify"). Armazenado no campo `payment_gateway` da tabela `transactions` e no campo `payment_gateway` da tabela `subscriptions`. Este campo é um dos identificadores que, junto com os IDs originais das plataformas, permite a identificação unificada de entidades. Veja mais em **[Estratégia de Integração Multiplataforma - Identificação e Reconciliação de Entidades](platform_integration_strategy_001.md#identificação-e-reconciliação-de-entidades)**.
+
+
+### I
+
+
+#### Identificação Multiplataforma
+Estratégia de design onde cada entidade possui um ID interno sequencial (`id`) para referências internas, enquanto preserva os identificadores originais das plataformas externas (como `product_id` + `platform_origin` para produtos). Esta abordagem é essencial para a unificação de dados de diferentes fontes. Para detalhes sobre esta estratégia, consulte **[Estratégia de Integração Multiplataforma - Identificação Única com Rastreabilidade](platform_integration_strategy_001.md#identificação-única-com-rastreabilidade)**.
+
+
+#### Indexação (Indexing)
+Criação de estruturas de dados (índices) que aceleram a recuperação de linhas de uma tabela com base nos valores de uma ou mais colunas. Estratégia importante para otimizar o desempenho de consultas neste banco de dados.
+
+
+#### Integridade Referencial
+Conjunto de regras que garantem que os relacionamentos entre tabelas (via FKs) sejam válidos e consistentes. Implementada através de chaves estrangeiras com restrições apropriadas.
+
+
+#### Item de Transação
+Produto, plano ou oferta adquirido em uma transação específica. Representado na tabela `transaction_items`, que relaciona uma transação com os produtos, planos ou ofertas adquiridos.
+
+
+### J
+
+
+#### JSONB
+Tipo de dado no PostgreSQL para armazenar dados semi-estruturados em formato JSON de forma eficiente, com suporte a indexação. Utilizado para armazenar metadados específicos de plataforma que não se encaixam no modelo relacional normalizado.
+
+
+### L
+
+
+#### Lookup Table
+Tabela auxiliar utilizada para armazenar um conjunto de valores (ex: status de transação) que podem ser referenciados por outras tabelas, facilitando a normalização e a flexibilidade. A tabela `transaction_statuses` é um exemplo de lookup table neste banco de dados.
+
+
+### M
+
+
+#### Método de Pagamento
+Forma utilizada pelo cliente para realizar o pagamento. No banco de dados, é normalizado como um tipo enumerado `payment_method_enum`, com valores como "credit_card", "boleto", "pix", etc. O processo de normalização destes valores a partir de diferentes terminologias de plataformas é descrito em **[Estratégia de Integração Multiplataforma - Mapeamento de Vocabulário](platform_integration_strategy_001.md#mapeamento-de-vocabulário)**.
+
+
+#### Migração de Banco de Dados
+Processo de aplicar alterações de esquema de forma versionada e controlada em diferentes ambientes de banco de dados. Essencial para a manutenção e evolução do banco de dados ao longo do tempo.
+
+
+### N
+
+
+#### Normalização de Dados
+Processo de converter dados de diferentes formatos e estruturas para um formato unificado no banco de dados. Inclui a padronização de valores enumerados, formatação de datas, valores monetários e identificadores. Implementado através da **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md)**.
+
+
+#### NUMERIC(p, s)
+Tipo de dado numérico de precisão exata no PostgreSQL, ideal para valores monetários (`NUMERIC(15, 4)` neste DB). `p` é a precisão total, `s` é a escala (dígitos após o ponto decimal).
+
+
+#### Número de Recorrência
+Contador sequencial que identifica a posição de uma transação recorrente dentro de uma assinatura. Por exemplo, a terceira cobrança mensal terá `recurrence_number` = 3. Armazenado no campo `recurrence_number` da tabela `transactions`.
+
+
+### O
+
+
+#### Oferta
+Combinação específica de um produto ou plano com condições comerciais particulares (preço, forma de pagamento, etc.). Representada pela tabela `offers` e identificada de forma única pela combinação de `offer_id` e `platform_origin`.
+
+
+#### ON DELETE CASCADE
+Regra de FK que especifica que se a linha referenciada na tabela pai for deletada, as linhas correspondentes na tabela filha também serão deletadas automaticamente. Aplicada em relacionamentos onde os registros filhos não têm sentido sem o registro pai.
+
+
+#### ON DELETE RESTRICT
+Regra de FK (comportamento padrão) que impede a exclusão de uma linha na tabela pai se houver linhas correspondentes na tabela filha. Protege contra exclusões que quebrariam a integridade referencial.
+
+
+#### ON DELETE SET NULL
+Regra de FK que especifica que se a linha referenciada na tabela pai for deletada, as colunas de chave estrangeira nas linhas correspondentes na tabela filha serão definidas como `NULL`. Usada quando o relacionamento é opcional.
+
+
+### P
+
+
+#### Participante de Comissão
+Entidade (produtor, afiliado, coprodutor) que recebe uma parte da receita de uma transação, registrado na tabela `commission_participants`.
+
+
+#### Pipeline de ETL
+Conjunto de processos responsáveis pela Extração, Transformação e Carregamento (ETL) de dados das plataformas externas para o banco de dados unificado. Descrito em detalhes em **[Estratégia de Integração Multiplataforma - Pipeline de ETL Padronizado](platform_integration_strategy_001.md#pipeline-de-etl-padronizado)**.
+
+
+#### Plano
+Configuração de assinatura recorrente, definindo produto, preço, e condições como ciclo de cobrança e período de trial. Representado pela tabela `plans` e identificado de forma única pela combinação de `plan_id` e `platform_origin`.
+
+
+#### Plataforma de Origem
+Sistema externo de onde os dados foram originalmente extraídos (ex: "Hotmart", "Kiwify"). Armazenado nos campos `platform_origin` em várias tabelas e usado como parte da identificação composta para entidades importadas. Este conceito é fundamental para a arquitetura agnóstica de plataforma, permitindo a unificação de dados de múltiplas fontes enquanto preserva sua origem. Para detalhes sobre como o sistema lida com múltiplas plataformas, consulte **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md)**.
+
+
+#### Princípio do Menor Privilégio
+Conceito de segurança que dita que usuários ou sistemas devem ter apenas as permissões de acesso aos dados estritamente necessárias para realizar suas funções. Aplicado na configuração de permissões de banco de dados.
+
+
+#### Produto
+Item básico de venda, que pode ser vendido diretamente ou através de planos de assinatura. Representado pela tabela `products` e identificado de forma única pela combinação de `product_id` e `platform_origin`.
+
+
+#### Produtor
+Criador principal de um produto, que recebe a maior parte da receita após descontos de taxas e comissões. No banco de dados, é representado como um registro na tabela `commission_participants` com valor apropriado no campo `source`.
+
+
+### R
+
+
+#### RAG (Retrieval-Augmented Generation)
+Arquitetura de IA que combina a geração de texto por LLMs com a recuperação de informações de uma base de conhecimento externa (como esta documentação). Esta documentação é otimizada para uso em sistemas RAG.
+
+
+#### Recorrência
+Cobrança periódica realizada como parte de uma assinatura. Representada como um registro na tabela `transactions` com `is_subscription` = true e vinculada a uma assinatura através do campo `subscription_id`.
+
+
+#### Reembolso
+Devolução do valor pago por uma transação. Representado como uma mudança de status da transação para "Reembolsada" na tabela `transaction_status_history`.
+
+
+### S
+
+
+#### SERIAL
+Pseudotipo no PostgreSQL que cria uma sequência, define a coluna como `NOT NULL` e atribui um valor padrão da próxima sequência, comumente usado para chaves primárias auto-incrementais (como o campo `id` na maioria das tabelas).
+
+
+#### snake_case
+Convenção de nomenclatura onde as palavras são separadas por underscores (ex: `nome_da_coluna`). Padrão para nomes de tabelas e colunas neste DB, consistente em todo o modelo de dados.
+
+
+#### Status Normalizado
+Representação padronizada do estado de uma transação ou assinatura, independentemente da terminologia utilizada pela plataforma de origem. Armazenado na tabela `transaction_statuses` e referenciado por `status_id` em `transactions` e `subscriptions`. O processo de mapeamento entre os status originais das plataformas e estes valores normalizados é detalhado em **[Estratégia de Integração Multiplataforma - Mapeamento de Status de Transação](platform_integration_strategy_001.md#mapeamento-de-status-de-transação)**.
+
+
+#### Snapshot de Oferta
+Cópia dos detalhes de uma oferta no momento da venda, preservada para referência histórica mesmo que a oferta seja alterada posteriormente. Armazenado na tabela `platform_sale_offer_history`.
+
+
+#### Subscriber ID
+Identificador único do assinante na plataforma de origem. Armazenado no campo `subscriber_id` da tabela `subscriptions`.
+
+
+#### Subscription ID
+Identificador único da assinatura na plataforma de origem. Armazenado no campo `subscription_id` da tabela `subscriptions`.
+
+
+### T
+
+
+#### Taxa de Plataforma
+Valor cobrado pela plataforma de venda (como Hotmart ou Kiwify) sobre uma transação. Registrada na tabela `transaction_fees` com o tipo apropriado.
+
+
+#### Terceira Forma Normal (3FN)
+Nível de normalização de banco de dados que garante que todas as colunas em uma tabela dependem apenas da chave primária e não de outras colunas não-chave. Base para o design deste banco de dados, garantindo a integridade dos dados.
+
+
+#### TIMESTAMP WITH TIME ZONE
+Tipo de dado no PostgreSQL que armazena um ponto no tempo absoluto, ajustando-se automaticamente aos fusos horários. Essencial para registrar eventos cronológicos com precisão, usado nos campos `created_at`, `updated_at` e outros timestamps.
+
+
+#### Transação
+Registro de uma venda ou cobrança recorrente. Representada pela tabela `transactions` e identificada de forma única pela combinação de `transaction_id` e `payment_gateway`.
+
+
+#### Transação Recorrente
+Cobrança automática gerada como parte de uma assinatura. Representada como um registro na tabela `transactions` com `is_subscription` = true e vinculada a uma assinatura.
+
+
+#### Tipo de Pagamento
+Classificação do pagamento como único ou parcelado. No banco de dados, é normalizado como um tipo enumerado `payment_type_enum`, com valores "SINGLE_PAYMENT" (à vista) ou "INSTALLMENT_PAYMENT" (parcelado).
+
+
+#### Trial
+Período inicial gratuito em uma assinatura. Configurado no campo `trial_days` da tabela `plans`.
+
+
+### U
+
+
+#### UNIQUE Constraint
+Regra que garante que todos os valores em uma coluna (ou conjunto de colunas) sejam distintos dentro da tabela. Usada para implementar unicidade, como a combinação de `product_id` e `platform_origin` na tabela `products`.
+
+
+### V
+
+
+#### Versionamento de Esquema
+Prática de rastrear e gerenciar as mudanças na estrutura do banco de dados ao longo do tempo, geralmente usando ferramentas de migração. Essencial para a evolução controlada do banco de dados.
+
+
+### Y
+
+
+#### YAML Front Matter
+Bloco de metadados no topo de um arquivo Markdown, delimitado por `---`, usado para fornecer informações estruturadas sobre o documento para sistemas como RAG. Utilizado em toda a documentação deste banco de dados.
+
+
+(Ref: Glossário do Banco de Dados, ID core_db_glossary_001)
+
+
+## Identificadores de Entidades Principais
+
+
+A tabela abaixo resume como as entidades principais são identificadas no banco de dados, combinando IDs internos sequenciais com identificadores externos das plataformas de origem:
+
+
+| Entidade | ID Interno | ID Externo | Unicidade |
+|----------|------------|------------|-----------|
+| Cliente | `customers.id` | `customers.customer_id` | `customers.email` (único) |
+| Produto | `products.id` | `products.product_id` | `(product_id, platform_origin)` |
+| Plano | `plans.id` | `plans.plan_id` | `(plan_id, platform_origin)` |
+| Oferta | `offers.id` | `offers.offer_id` | `(offer_id, platform_origin)` |
+| Transação | `transactions.id` | `transactions.transaction_id` | `(transaction_id, payment_gateway)` |
+| Assinatura | `subscriptions.id` | `subscriptions.subscription_id` | `(subscription_id, payment_gateway)` |
+| Participante | `commission_participants.id` | `commission_participants.platform_id` | `(platform_id, platform_origin)` |
+
+
+Para mais detalhes sobre a estratégia de identificação e reconciliação de entidades entre plataformas, consulte **[Estratégia de Integração Multiplataforma - Identificação e Reconciliação de Entidades](platform_integration_strategy_001.md#identificação-e-reconciliação-de-entidades)**.
+
+
+(Ref: Glossário do Banco de Dados, ID core_db_glossary_001)
+
+
+## Vocabulário Específico por Plataforma
+
+
+A tabela abaixo apresenta exemplos de como conceitos comuns são referidos em diferentes plataformas e sua representação normalizada no banco de dados:
+
+
+| Conceito Normalizado | Termo Hotmart | Termo Kiwify | Campo no Banco de Dados |
+|----------------------|---------------|--------------|------------------------|
+| Cliente | "Buyer" | "Customer" | `customers` |
+| Produto | "Product" | "Product" | `products` |
+| Plano | "Plan" | "Plan" | `plans` |
+| Transação | "Purchase" | "Checkout" | `transactions` |
+| Assinatura | "Subscription" | "Subscription" | `subscriptions` |
+| Afiliado | "Affiliate" | "Affiliate" | `commission_participants` (source = "AFFILIATE") |
+| Produtor | "Producer" | "Owner" | `commission_participants` (source = "PRODUCER") |
+| Comissão | "Commission" | "Commission" | `platform_commission` |
+| Status: Aprovada | "APPROVED" | "paid" | `transaction_statuses.status = 'Aprovada'` |
+| Status: Reembolsada | "REFUNDED" | "refunded" | `transaction_statuses.status = 'Reembolsada'` |
+| Status: Cancelada | "CANCELED" | "canceled" | `transaction_statuses.status = 'Cancelada'` |
+
+
+Esta tabela ilustra a importância do processo de normalização implementado pela **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md)**. Para uma lista completa e atualizada dos mapeamentos entre termos específicos de plataformas e o vocabulário normalizado, consulte o documento **[Guia de Mapeamento de APIs](ref_api_mapping_guide_001.md)**.
+
+
+(Ref: Glossário do Banco de Dados, ID core_db_glossary_001)
+
+
+## Convenções e Nomenclatura
+
+
+### Convenções de Nomeação de Tabelas
+
+
+- **Tabelas principais**: Nome no plural, representando a entidade (ex: `customers`, `products`)
+- **Tabelas de histórico**: Sufixo `_history` ou `_logs` (ex: `transaction_status_history`, `customer_logs`)
+- **Tabelas de mapeamento**: Prefixo que indica o domínio (ex: `platform_commission`, `platform_utm_history`)
+
+
+### Convenções de Nomeação de Colunas
+
+
+- **Chaves primárias**: Sempre `id`
+- **Chaves estrangeiras**: Nome da tabela referenciada no singular + `_id` (ex: `customer_id`, `product_id`)
+- **Identificadores externos**: Nome descritivo do tipo de ID (ex: `transaction_id`, `subscription_id`)
+- **Plataforma de origem**: Consistentemente `platform_origin` ou `payment_gateway` dependendo do contexto
+- **Timestamps**: Sempre `created_at` e `updated_at` para rastreamento temporal
+
+
+Estas convenções são consistentes em todo o banco de dados, facilitando a compreensão e navegação entre tabelas relacionadas.
+
+
+Para mais detalhes sobre as convenções técnicas adotadas, consulte **[Princípios de Design do Banco de Dados - Convenções Técnicas](core_db_design_001.md#convenções-técnicas)**.
+
+
+(Ref: Glossário do Banco de Dados, ID core_db_glossary_001)
+
+
+## Tipos de Dados Especializados
+
+
+### Types Enumerados
+
+
+O banco de dados utiliza tipos enumerados (ENUM) do PostgreSQL para garantir consistência em valores categóricos:
+
+
+#### payment_method_enum
+Enumera os métodos de pagamento aceitos:
+- `credit_card`: Cartão de Crédito
+- `debit_card`: Cartão de Débito
+- `boleto`: Boleto Bancário à vista
+- `pix`: PIX
+- `paypal`: PayPal
+- `bank_transfer`: Transferência Bancária
+- `digital_wallet`: Carteiras Digitais (ex: Google Pay, Apple Pay)
+- Outros valores (ver schema completo)
+
+
+#### payment_type_enum
+Classifica o tipo de pagamento:
+- `SINGLE_PAYMENT`: Pagamento único (à vista)
+- `INSTALLMENT_PAYMENT`: Pagamento parcelado
+
+
+O processo de normalização dos valores originais das plataformas para estes tipos enumerados é implementado pela **[Estratégia de Integração Multiplataforma - Mapeamento de Métodos de Pagamento](platform_integration_strategy_001.md#mapeamento-de-métodos-de-pagamento)**.
+
+
+### Tipos de Dados para Campos Comuns
+
+
+- **Identificadores**: Geralmente VARCHAR para preservar formato original
+- **Valores monetários**: NUMERIC(15, 4) para precisão com 4 casas decimais
+- **Datas e timestamps**: TIMESTAMP WITH TIME ZONE para preservar fuso horário
+- **Textos longos**: TEXT para conteúdo de tamanho variável ou desconhecido
+- **Booleanos**: BOOLEAN para flags e indicadores binários
+
+
+Para detalhes completos sobre os tipos de dados utilizados em cada tabela, consulte **[Referência Detalhada do Schema](ref_db_schema_details_001.md)**.
+
+
+(Ref: Glossário do Banco de Dados, ID core_db_glossary_001)
+
+
+## Conclusão
+
+
+Este glossário fornece uma base terminológica sólida para compreender a estrutura e o funcionamento do banco de dados `joaocastanheira_bancodedados`. A padronização de termos é especialmente importante considerando que o banco unifica dados de múltiplas plataformas com terminologias diferentes.
+
+
+Os termos e conceitos definidos neste documento refletem a natureza agnóstica de plataforma do design, onde diferentes fontes de dados são normalizadas para um modelo consistente conforme detalhado na **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md)**.
+
+
+Recomenda-se que todos os usuários e desenvolvedores que trabalham com este banco de dados se familiarizem com esta terminologia para garantir comunicação clara e consistente.
+
+
+(Ref: Glossário do Banco de Dados, ID core_db_glossary_001)

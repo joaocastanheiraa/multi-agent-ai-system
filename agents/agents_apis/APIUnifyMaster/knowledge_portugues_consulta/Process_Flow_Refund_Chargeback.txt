@@ -1,0 +1,953 @@
+﻿# `Process_Flow_Refund_Chargeback.md`:**
+
+
+Fluxo de Processo: Reembolsos e Chargebacks
+
+
+```markdown
+---
+title: "Fluxo de Processo: Reembolsos e Chargebacks"
+id: "process_flow_refund_chargeback_001"
+doc_type: "process_flow"
+doc_version: "1.2"
+date_created: "2025-04-23"
+date_updated: "2025-04-23"
+author: "João Castanheira"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Aprovado"
+environment: "Produção"
+related_docs: [
+  "core_db_architecture_001", 
+  "platform_integration_strategy_001", 
+  "process_flow_purchase_lifecycle_001", 
+  "process_flow_commission_system_001", 
+  "process_flow_status_tracking_001", 
+  "analytics_examples_001"
+]
+tables_in_focus: [
+  "transactions", 
+  "transaction_status_history", 
+  "subscriptions", 
+  "subscription_status_history", 
+  "platform_commission", 
+  "platform_transaction_payment_history", 
+  "transaction_statuses"
+]
+embedding_guide_concepts: [
+  "processamento de reembolso", 
+  "gestão de chargebacks", 
+  "estorno de comissões", 
+  "reversão financeira", 
+  "atualização de status", 
+  "reembolso parcial", 
+  "política de garantia", 
+  "disputa de cartão", 
+  "fluxo de estorno", 
+  "cancelamento com devolução", 
+  "impacto financeiro", 
+  "análise de reembolsos", 
+  "taxa de reembolso", 
+  "motivos de devolução", 
+  "webhook de reembolso"
+]
+---
+
+
+# Fluxo de Processo: Reembolsos e Chargebacks
+
+
+## Visão Geral do Processo
+
+
+O sistema de processamento de reembolsos e chargebacks foi projetado para gerenciar de forma consistente os eventos de devolução financeira, independentemente da plataforma de origem. Este processo é crítico para manter a integridade financeira do sistema, garantir a satisfação do cliente e cumprir com requisitos regulatórios.
+
+
+Quando um reembolso ou chargeback ocorre, o sistema executa uma série de etapas coordenadas: normalização do evento recebido, identificação da transação original, atualização de status, ajustes financeiros e estorno de comissões. Este fluxo cria um registro completo e auditável de toda operação, permitindo análises financeiras precisas e resolução eficiente de disputas.
+
+
+Este processo se integra diretamente com o [Sistema de Comissionamento](process_flow_commission_system_001.md) e o [Rastreamento de Status](process_flow_status_tracking_001.md), garantindo que todas as implicações financeiras e de estado sejam devidamente registradas e processadas.
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+## Diferenças entre Reembolsos e Chargebacks
+
+
+Embora ambos resultem na devolução de valores ao cliente, reembolsos e chargebacks possuem características e implicações distintas:
+
+
+| Característica | Reembolso | Chargeback |
+|:--------------|:----------|:-----------|
+| **Iniciador** | Cliente solicita diretamente ao vendedor ou plataforma | Cliente contesta junto ao banco/emissor do cartão |
+| **Aprovação** | Aprovado pelo vendedor/plataforma | Forçado pelo banco emissor após investigação |
+| **Controle** | Vendedor tem controle sobre o processo | Pouco ou nenhum controle do vendedor sobre o processo |
+| **Custos adicionais** | Geralmente sem taxas extras | Frequentemente envolve taxas de chargeback e penalidades |
+| **Impacto na reputação** | Impacto mínimo | Pode afetar negativamente a reputação junto a processadores de pagamento |
+| **Timing** | Geralmente mais rápido | Processo mais longo, com período de disputa |
+
+
+O sistema processa ambos os tipos de eventos de forma semelhante, com adaptações específicas para lidar com as particularidades de cada um.
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+## Diagrama do Fluxo de Processo
+
+
+```mermaid
+graph TD
+    A[Evento de Reembolso/Chargeback<br>Recebido] --> B{Normalizar Dados<br>da Plataforma};
+    B --> C{Tipo de<br>Evento?}
+    
+    C -->|Reembolso|D[Identificar Transação<br>a ser Reembolsada]
+    C -->|Chargeback|E[Identificar Transação<br>Contestada]
+    
+    D --> F{Transação<br>Encontrada?}
+    E --> F
+    
+    F -->|Não|G[Registrar Erro<br>para Investigação]
+    F -->|Sim|H{Tipo de<br>Transação?}
+    
+    H -->|Única|I[Processar Reembolso<br>de Transação Única]
+    H -->|Assinatura|J[Processar Reembolso<br>de Assinatura]
+    
+    I --> K[Atualizar Status<br>para Reembolsada/Estornada]
+    J --> L{Reembolso<br>Impacta Assinatura?}
+    
+    L -->|Não|M[Apenas Processar<br>Reembolso da Transação]
+    L -->|Sim|N[Processar Reembolso e<br>Cancelar Assinatura]
+    
+    K --> O[Ajustar Valores<br>Financeiros]
+    M --> O
+    N --> O
+    
+    O --> P[Estornar Comissões<br>de Parceiros]
+    P --> Q[Registrar Detalhes<br>do Reembolso/Chargeback]
+    
+    B -->|Erro|R[Log de Erro<br>de Normalização]
+```
+
+
+O diagrama ilustra o fluxo completo desde o recebimento do evento até a conclusão do processamento do reembolso ou chargeback, incluindo todas as etapas intermediárias e decisões.
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+## Modelo de Dados para Reembolsos e Chargebacks
+
+
+O sistema utiliza várias tabelas para registrar e processar eventos de reembolso e chargeback:
+
+
+### Tabelas Principais
+
+
+1. **transactions**: Armazena a transação principal afetada pelo reembolso/chargeback
+   - `status_id`: Atualizado para refletir o estado de reembolso/chargeback
+   - `producer_net_amount`, `partner_commission_amount`: Ajustados para refletir valores após reembolso
+
+
+2. **transaction_status_history**: Registra a mudança de status para reembolso/chargeback
+   - `reason`: Documenta o motivo do reembolso/chargeback
+   - `change_date`: Registra quando o reembolso/chargeback ocorreu
+
+
+3. **platform_transaction_payment_history**: Registra detalhes específicos do reembolso
+   - `payment_method`: "refund" ou "chargeback"
+   - `value`: Valor negativo indicando o montante reembolsado
+   - `metadata`: JSON com detalhes específicos (motivo, ID do reembolso, etc.)
+
+
+4. **platform_commission**: Registra estornos de comissões
+   - Novos registros com valores negativos são criados para cada comissão estornada
+   - `source`: Recebe sufixo "_REFUND" para indicar estorno (ex: "AFFILIATE_REFUND")
+
+
+### Exemplo de Estrutura de Dados
+
+
+Para um reembolso típico, o sistema registra:
+
+
+```json
+// Em platform_transaction_payment_history
+{
+  "transaction_id": 1234,
+  "payment_method": "refund",
+  "payment_type": "REFUND",
+  "value": -97.00,
+  "payment_date": "2023-11-21T14:30:00Z",
+  "metadata": {
+    "refund_reason": "Customer requested during guarantee period",
+    "refund_id": "REF123456",
+    "refund_type": "full",
+    "initiated_by": "customer",
+    "platform_refund_id": "plat_ref_987654"
+  }
+}
+
+
+// Em transaction_status_history
+{
+  "transaction_id": 1234,
+  "status_id": 5, // ID do status "Reembolsada"
+  "change_date": "2023-11-21T14:30:00Z",
+  "reason": "Reembolso processado via webhook: Customer requested during guarantee period"
+}
+```
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+## Fases do Processamento de Reembolsos
+
+
+### 1. Recepção e Normalização do Evento
+
+
+O processamento começa quando o sistema recebe uma notificação de reembolso ou chargeback, geralmente via webhook.
+
+
+**Processo:**
+1. Receber payload do evento (webhook/API)
+2. Validar autenticidade do evento
+3. Normalizar dados para o formato padrão do sistema
+4. Identificar o tipo exato de evento (reembolso total, parcial, chargeback)
+
+
+**Exemplo de Dados Normalizados:**
+```json
+{
+  "event_type": "refund",
+  "transaction_id": "T123456",
+  "payment_gateway": "plataforma_exemplo",
+  "refund_amount": 97.00,
+  "is_partial": false,
+  "refund_date": "2023-11-21T14:30:00Z",
+  "reason": "Customer requested during guarantee period",
+  "initiated_by": "customer",
+  "refund_id": "REF123456"
+}
+```
+
+
+A normalização garante que, independentemente da plataforma de origem, o sistema processe os dados de forma consistente.
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+### 2. Identificação da Transação Original
+
+
+Após normalizar o evento, o sistema identifica a transação original afetada pelo reembolso/chargeback.
+
+
+**Processo:**
+1. Consultar a tabela `transactions` usando o ID da transação e a plataforma
+2. Verificar se a transação existe e está em estado válido
+3. Determinar se é uma transação única ou parte de uma assinatura
+4. Se for parte de uma assinatura, identificar a assinatura relacionada
+
+
+**Consulta SQL:**
+```sql
+-- Localizar a transação original
+SELECT 
+    t.id AS transaction_internal_id,
+    t.customer_id,
+    t.offer_price,
+    t.currency_code,
+    t.is_subscription,
+    t.subscription_id,
+    t.status_id,
+    ts.status AS current_status
+FROM 
+    transactions t
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    t.transaction_id = 'T123456'
+    AND t.payment_gateway = 'plataforma_exemplo';
+```
+
+
+Esta fase é crítica para garantir que o sistema esteja operando na transação correta, evitando possíveis inconsistências de dados.
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+### 3. Atualização de Status
+
+
+Com a transação identificada, o sistema atualiza seu status para refletir o reembolso ou chargeback.
+
+
+**Processo:**
+1. Determinar o novo status normalizado (ex: "Reembolsada" ou "Estornada")
+2. Atualizar a transação com o novo status
+3. Registrar a mudança no histórico de status com o motivo detalhado
+4. Para assinaturas afetadas, atualizar seu status se necessário
+
+
+**Implementação:**
+```sql
+-- Atualizar status da transação
+UPDATE transactions
+SET 
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Reembolsada'),
+    updated_at = CURRENT_TIMESTAMP
+WHERE 
+    id = [transaction_internal_id];
+
+
+-- Registrar no histórico de status
+INSERT INTO transaction_status_history (
+    transaction_id,
+    status_id,
+    change_date,
+    reason,
+    created_at,
+    updated_at
+)
+VALUES (
+    [transaction_internal_id],
+    (SELECT id FROM transaction_statuses WHERE status = 'Reembolsada'),
+    CURRENT_TIMESTAMP,
+    'Reembolso processado: Customer requested during guarantee period',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+);
+```
+
+
+Para assinaturas que também precisam ser canceladas devido ao reembolso:
+
+
+```sql
+-- Atualizar status da assinatura
+UPDATE subscriptions
+SET 
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Cancelada'),
+    cancel_date = CURRENT_TIMESTAMP,
+    updated_at = CURRENT_TIMESTAMP
+WHERE 
+    id = [subscription_id];
+
+
+-- Registrar no histórico de status da assinatura
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    change_date,
+    reason,
+    created_at,
+    updated_at
+)
+VALUES (
+    [subscription_id],
+    (SELECT id FROM transaction_statuses WHERE status = 'Cancelada'),
+    CURRENT_TIMESTAMP,
+    'Assinatura cancelada devido a reembolso da transação',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+);
+```
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+### 4. Ajustes Financeiros
+
+
+Após atualizar o status, o sistema realiza os ajustes financeiros necessários na transação.
+
+
+**Processo:**
+1. Para reembolsos totais: Zerar valores financeiros relevantes
+2. Para reembolsos parciais: Ajustar valores proporcionalmente
+3. Registrar o reembolso como um evento de pagamento negativo
+
+
+**Implementação para Reembolso Total:**
+```sql
+-- Ajustar valores financeiros da transação
+UPDATE transactions
+SET 
+    producer_net_amount = 0,
+    partner_commission_amount = 0,
+    updated_at = CURRENT_TIMESTAMP
+WHERE 
+    id = [transaction_internal_id];
+
+
+-- Registrar o evento de reembolso
+INSERT INTO platform_transaction_payment_history (
+    transaction_id,
+    payment_method,
+    payment_type,
+    value,
+    payment_date,
+    metadata,
+    created_at,
+    updated_at
+)
+VALUES (
+    [transaction_internal_id],
+    'refund',
+    'REFUND',
+    -97.00,  -- Valor negativo indicando reembolso
+    CURRENT_TIMESTAMP,
+    '{"reason": "Customer requested during guarantee period", "refund_id": "REF123456", "refund_type": "full"}',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+);
+```
+
+
+**Implementação para Reembolso Parcial (exemplo: 50%):**
+```sql
+-- Calcular novos valores para reembolso parcial
+UPDATE transactions
+SET 
+    producer_net_amount = producer_net_amount * 0.5,
+    partner_commission_amount = partner_commission_amount * 0.5,
+    updated_at = CURRENT_TIMESTAMP
+WHERE 
+    id = [transaction_internal_id];
+
+
+-- Registrar o evento de reembolso parcial
+INSERT INTO platform_transaction_payment_history (
+    transaction_id,
+    payment_method,
+    payment_type,
+    value,
+    payment_date,
+    metadata,
+    created_at,
+    updated_at
+)
+VALUES (
+    [transaction_internal_id],
+    'refund',
+    'PARTIAL_REFUND',
+    -48.50,  -- 50% do valor original
+    CURRENT_TIMESTAMP,
+    '{"reason": "Partial refund agreement", "refund_id": "REF123456", "refund_type": "partial", "refund_percentage": 50}',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+);
+```
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+### 5. Estorno de Comissões
+
+
+A etapa final do processamento envolve estornar as comissões pagas aos parceiros.
+
+
+**Processo:**
+1. Identificar todas as comissões associadas à transação
+2. Para cada comissão, criar um registro de estorno correspondente
+3. Registrar valores negativos para representar o estorno
+
+
+**Implementação:**
+```sql
+-- Identificar todas as comissões originais
+WITH original_commissions AS (
+    SELECT 
+        id,
+        participant_id, 
+        amount, 
+        currency_code, 
+        source
+    FROM 
+        platform_commission
+    WHERE 
+        transaction_id = [transaction_internal_id]
+        AND source NOT LIKE '%REFUND%'
+)
+
+
+-- Registrar estornos para cada comissão
+INSERT INTO platform_commission (
+    transaction_id,
+    participant_id,
+    amount,
+    currency_code,
+    source,
+    created_at,
+    updated_at
+)
+SELECT
+    [transaction_internal_id],
+    participant_id,
+    -amount,  -- Valor negativo para estorno
+    currency_code,
+    CASE 
+        WHEN source = 'AFFILIATE' THEN 'AFFILIATE_REFUND'
+        WHEN source = 'PRODUCER' THEN 'PRODUCER_REFUND'
+        WHEN source = 'COPRODUCER' THEN 'COPRODUCER_REFUND'
+        ELSE source || '_REFUND'
+    END,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+FROM
+    original_commissions;
+```
+
+
+Para reembolsos parciais, os estornos são proporcionais ao percentual reembolsado:
+
+
+```sql
+-- Para reembolso parcial de 50%
+INSERT INTO platform_commission (
+    transaction_id,
+    participant_id,
+    amount,
+    currency_code,
+    source,
+    created_at,
+    updated_at
+)
+SELECT
+    [transaction_internal_id],
+    participant_id,
+    -amount * 0.5,  -- 50% do valor original
+    currency_code,
+    source || '_PARTIAL_REFUND',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+FROM
+    original_commissions;
+```
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+## Cenários Especiais de Reembolso
+
+
+### Reembolso Parcial
+
+
+Os reembolsos parciais exigem tratamento especial para garantir que os valores sejam ajustados proporcionalmente.
+
+
+**Processo:**
+1. Calcular a porcentagem do valor sendo reembolsado
+2. Ajustar `producer_net_amount` e `partner_commission_amount` na mesma proporção
+3. Estornar apenas a parte proporcional das comissões
+
+
+**Exemplo:**
+```
+Transação Original:
+- Valor da oferta: R$ 100,00
+- Taxa da plataforma: R$ 10,00
+- Valor distribuível: R$ 90,00
+- Comissão do afiliado: R$ 30,00
+- Valor líquido para o produtor: R$ 60,00
+
+
+Reembolso Parcial de 50%:
+- Valor reembolsado: R$ 50,00
+- Estorno de comissão do afiliado: R$ 15,00 (50% de R$ 30,00)
+- Novo valor líquido para o produtor: R$ 30,00 (50% de R$ 60,00)
+```
+
+
+O status da transação pode ser atualizado para um status específico de reembolso parcial ou manter o status original, dependendo das regras de negócio.
+
+
+### Reembolso de Assinatura
+
+
+Reembolsos relacionados a assinaturas podem ter diferentes implicações, dependendo do contexto e das políticas da plataforma.
+
+
+**Cenários Comuns:**
+
+
+1. **Reembolso durante período de teste/garantia:**
+   - Cancela completamente a assinatura
+   - Reembolsa a transação inicial
+   - Revoga acesso imediatamente
+
+
+2. **Reembolso de cobrança específica:**
+   - Reembolsa apenas a transação recorrente específica
+   - Assinatura continua ativa para cobranças futuras
+   - Acesso é mantido
+
+
+3. **Reembolso com cancelamento proativo:**
+   - Reembolsa uma ou mais transações recentes
+   - Cancela a assinatura para evitar cobranças futuras
+   - Define data final de acesso (imediata ou futura)
+
+
+A lógica de processamento deve considerar:
+- Se o reembolso afeta o status da assinatura
+- Como datas de acesso e próximas cobranças devem ser ajustadas
+- Se existe período de aviso prévio para cancelamento
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+## Análises de Reembolsos e Chargebacks
+
+
+O sistema permite análises detalhadas para monitorar tendências e identificar problemas relacionados a reembolsos e chargebacks.
+
+
+### Taxa de Reembolso por Produto
+
+
+```sql
+-- Análise de taxa de reembolso por produto
+WITH sales_data AS (
+    SELECT 
+        p.id AS product_id,
+        p.name AS product_name,
+        COUNT(t.id) AS total_sales,
+        SUM(t.offer_price) AS total_revenue
+    FROM 
+        transactions t
+    JOIN 
+        transaction_items ti ON t.id = ti.transaction_id
+    JOIN 
+        products p ON ti.product_id = p.id
+    WHERE 
+        t.created_at >= CURRENT_DATE - INTERVAL '90 days'
+    GROUP BY 
+        p.id, p.name
+),
+refund_data AS (
+    SELECT 
+        p.id AS product_id,
+        COUNT(t.id) AS refund_count,
+        SUM(t.offer_price) AS refunded_amount
+    FROM 
+        transactions t
+    JOIN 
+        transaction_items ti ON t.id = ti.transaction_id
+    JOIN 
+        products p ON ti.product_id = p.id
+    JOIN 
+        transaction_statuses ts ON t.status_id = ts.id
+    WHERE 
+        ts.status IN ('Reembolsada', 'Estornada')
+        AND t.created_at >= CURRENT_DATE - INTERVAL '90 days'
+    GROUP BY 
+        p.id
+)
+SELECT 
+    sd.product_name,
+    sd.total_sales,
+    COALESCE(rd.refund_count, 0) AS refund_count,
+    sd.total_revenue,
+    COALESCE(rd.refunded_amount, 0) AS refunded_amount,
+    ROUND(
+        COALESCE(rd.refund_count, 0) * 100.0 / sd.total_sales, 
+        2
+    ) AS refund_rate_percent
+FROM 
+    sales_data sd
+LEFT JOIN 
+    refund_data rd ON sd.product_id = rd.product_id
+ORDER BY 
+    refund_rate_percent DESC;
+```
+
+
+### Tempo Médio até Reembolso
+
+
+```sql
+-- Análise de tempo médio até reembolso
+SELECT 
+    date_trunc('month', t.order_date) AS month,
+    COUNT(*) AS refund_count,
+    ROUND(
+        AVG(
+            EXTRACT(EPOCH FROM (
+                (SELECT MIN(tsh.change_date)
+                 FROM transaction_status_history tsh
+                 JOIN transaction_statuses ts ON tsh.status_id = ts.id
+                 WHERE tsh.transaction_id = t.id
+                 AND ts.status IN ('Reembolsada', 'Estornada'))
+                - t.order_date
+            )) / 86400
+        ), 
+        1
+    ) AS avg_days_to_refund
+FROM 
+    transactions t
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    ts.status IN ('Reembolsada', 'Estornada')
+    AND t.order_date >= CURRENT_DATE - INTERVAL '365 days'
+GROUP BY 
+    month
+ORDER BY 
+    month;
+```
+
+
+### Análise de Motivos de Reembolso
+
+
+```sql
+-- Categorização de motivos de reembolso
+SELECT 
+    CASE
+        WHEN tsh.reason ILIKE '%garantia%' OR tsh.reason ILIKE '%guarantee%' THEN 'Garantia de Satisfação'
+        WHEN tsh.reason ILIKE '%tecnic%' OR tsh.reason ILIKE '%problem%' OR tsh.reason ILIKE '%error%' THEN 'Problemas Técnicos'
+        WHEN tsh.reason ILIKE '%expect%' OR tsh.reason ILIKE '%descri%' THEN 'Não Atendeu Expectativas'
+        WHEN tsh.reason ILIKE '%duplic%' THEN 'Compra Duplicada'
+        WHEN tsh.reason ILIKE '%fraud%' OR tsh.reason ILIKE '%unauthoriz%' THEN 'Transação Não Autorizada'
+        WHEN tsh.reason ILIKE '%chargeback%' THEN 'Chargeback'
+        ELSE 'Outros Motivos'
+    END AS reason_category,
+    COUNT(*) AS count,
+    ROUND(
+        COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 
+        2
+    ) AS percentage
+FROM 
+    transaction_status_history tsh
+JOIN 
+    transaction_statuses ts ON tsh.status_id = ts.id
+WHERE 
+    ts.status IN ('Reembolsada', 'Estornada')
+    AND tsh.created_at >= CURRENT_DATE - INTERVAL '90 days'
+GROUP BY 
+    reason_category
+ORDER BY 
+    count DESC;
+```
+
+
+### Impacto Financeiro de Reembolsos
+
+
+```sql
+-- Análise de impacto financeiro mensal
+SELECT 
+    date_trunc('month', t.updated_at) AS month,
+    COUNT(*) AS refund_count,
+    SUM(t.offer_price) AS total_refunded,
+    SUM(t.platform_fee_amount) AS platform_fees,
+    SUM(t.partner_commission_amount) AS commission_refunds,
+    SUM(ptph.value) AS actual_refund_value
+FROM 
+    transactions t
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+LEFT JOIN 
+    platform_transaction_payment_history ptph ON 
+        t.id = ptph.transaction_id AND 
+        ptph.payment_method = 'refund'
+WHERE 
+    ts.status IN ('Reembolsada', 'Estornada')
+    AND t.updated_at >= CURRENT_DATE - INTERVAL '12 months'
+GROUP BY 
+    month
+ORDER BY 
+    month;
+```
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+## Desafios e Considerações Especiais
+
+
+### Políticas de Reembolso Distintas entre Plataformas
+
+
+Cada plataforma pode ter regras e políticas próprias para reembolsos, criando desafios de padronização.
+
+
+**Desafio:** A Plataforma A pode permitir reembolsos em até 30 dias, enquanto a Plataforma B limita a 7 dias, com regras diferentes para assinaturas.
+
+
+**Solução:**
+- Normalizar o processamento internamente, independente das regras específicas
+- Armazenar metadados específicos da plataforma para referência
+- Implementar lógica flexível que acomoda diferentes regras de negócio
+
+
+### Tratamento de Reembolsos Parciais
+
+
+Os reembolsos parciais exigem cálculos proporcionais precisos para manter a integridade financeira.
+
+
+**Desafio:** Garantir que os valores sejam ajustados proporcionalmente em todos os componentes financeiros.
+
+
+**Solução:**
+- Calcular exatamente a proporção do reembolso
+- Aplicar a mesma proporção a todos os valores derivados (comissões, taxas)
+- Manter metadados detalhados sobre o cálculo aplicado
+
+
+### Chargebacks vs. Reembolsos Voluntários
+
+
+Chargebacks e reembolsos voluntários têm naturezas diferentes e podem requerer tratamentos distintos.
+
+
+**Desafio:** Chargebacks geralmente envolvem disputa, potenciais penalidades e taxas adicionais.
+
+
+**Solução:**
+- Usar status ou flags distintos para diferenciar chargebacks de reembolsos voluntários
+- Incluir campos para taxas adicionais associadas a chargebacks
+- Implementar fluxos de acompanhamento específicos para chargebacks
+
+
+### Validação de Reembolsos
+
+
+Nem todos os reembolsos devem ser processados automaticamente, especialmente fora do período de garantia.
+
+
+**Desafio:** Estabelecer um processo de validação para reembolsos que requerem aprovação.
+
+
+**Solução:**
+- Implementar um estado intermediário para reembolsos pendentes de aprovação
+- Registrar o fluxo completo de aprovação no histórico
+- Permitir anotações e documentação de evidências para casos em disputa
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+## Integração com Outros Processos
+
+
+O fluxo de reembolsos e chargebacks se integra com vários outros processos do sistema:
+
+
+### 1. Sistema de Comissionamento
+
+
+Quando ocorre um reembolso, o [Sistema de Comissionamento](process_flow_commission_system_001.md) é acionado para:
+- Estornar comissões pagas a afiliados e coprodutores
+- Registrar estornos com valores negativos
+- Ajustar o valor líquido do produtor
+
+
+### 2. Rastreamento de Status
+
+
+O [Rastreamento de Status](process_flow_status_tracking_001.md) é atualizado para:
+- Registrar a mudança de status da transação para "Reembolsada" ou "Estornada"
+- Manter o histórico completo de todas as transições de status
+- Documentar os motivos de cada mudança
+
+
+### 3. Ciclo de Vida de Assinatura
+
+
+Para reembolsos que afetam assinaturas, o processo interage com o fluxo de ciclo de vida de assinaturas para:
+- Atualizar o status da assinatura (se necessário)
+- Cancelar cobranças futuras
+- Definir datas de término de acesso
+
+
+### 4. Notificações e Alertas
+
+
+O processamento de reembolsos pode acionar:
+- Notificações para o cliente sobre o status do reembolso
+- Alertas para produtores sobre reembolsos significativos
+- Relatórios para administradores sobre taxas de reembolso anormais
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+## Melhores Práticas para Gestão de Reembolsos
+
+
+### 1. Documentação Detalhada
+
+
+Sempre registre informações completas sobre cada reembolso:
+- Motivo específico da solicitação
+- Quem iniciou e quem aprovou
+- Evidências ou comunicações relevantes
+- Detalhes específicos da plataforma de origem
+
+
+### 2. Monitoramento Proativo
+
+
+Implemente alertas e monitoramento para:
+- Taxas de reembolso acima do normal
+- Produtos com altas taxas de reembolso
+- Padrões suspeitos (múltiplos reembolsos do mesmo cliente)
+- Tempos médios para solicitação de reembolso
+
+
+### 3. Reconciliação Financeira
+
+
+Realize reconciliação periódica para garantir:
+- Que todos os reembolsos das plataformas foram processados corretamente
+- Que o estorno de comissões foi calculado precisamente
+- Que relatórios financeiros refletem corretamente os reembolsos
+
+
+### 4. Análise de Causa Raiz
+
+
+Para reduzir taxas de reembolso:
+- Analise regularmente os motivos mais comuns
+- Identifique padrões por produto, afiliado ou período
+- Implemente melhorias baseadas em feedback dos reembolsos
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+
+
+## Conclusão
+
+
+O processamento eficiente de reembolsos e chargebacks é fundamental para a integridade financeira e operacional de qualquer sistema de vendas e assinaturas. O fluxo implementado no banco de dados `joaocastanheira_bancodedados` oferece:
+
+
+1. **Tratamento unificado** de eventos de reembolso e chargeback de múltiplas plataformas
+2. **Rastreamento preciso** de todas as mudanças de status e ajustes financeiros
+3. **Estorno apropriado** de comissões pagas a parceiros
+4. **Suporte flexível** para diferentes tipos de reembolso (total, parcial) e cenários de assinatura
+5. **Base para análises** detalhadas de tendências e impacto financeiro
+
+
+A implementação descrita garante que todos os aspectos de reembolsos e chargebacks sejam processados corretamente, mantendo a precisão financeira e fornecendo os dados necessários para relatórios e análises de negócios.
+
+
+(Ref: Reembolsos e Chargebacks, ID process_flow_refund_chargeback_001)
+```

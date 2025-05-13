@@ -1,0 +1,1102 @@
+﻿# `Domain_Platform_Integration_Details.md`, que explicará as tabelas responsáveis por armazenar detalhes específicos das plataformas integradas, histórico de pagamentos, dados UTM, informações fiscais e outros metadados relacionados às transações.
+
+
+Domínio: Detalhes de Integração com Plataformas
+
+
+```markdown
+---
+title: "Domínio: Detalhes de Integração com Plataformas"
+id: "domain_platform_integration_details_001"
+doc_type: "domain_functional"
+doc_version: "1.1"
+date_created: "2025-04-23"
+date_updated: "2025-04-23"
+author: "João Castanheira"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Aprovado"
+environment: "Produção"
+related_docs: [
+  "core_db_architecture_001", 
+  "platform_integration_strategy_001", 
+  "domain_transactions_lifecycle_001", 
+  "domain_customers_ecosystem_001", 
+  "domain_products_catalog_001", 
+  "process_flow_purchase_lifecycle_001"
+]
+tables_in_domain: [
+  "platform_transaction_payment_history", 
+  "platform_utm_history", 
+  "platform_software_invoice_history", 
+  "platform_sale_offer_history"
+]
+functional_domain: ["Platform Integration", "Payment Processing", "Marketing Analytics", "Tax Documentation"]
+embedding_guide_concepts: [
+  "integração de plataformas", 
+  "histórico de pagamentos", 
+  "tentativas de pagamento", 
+  "detalhes de pagamento", 
+  "rastreamento UTM", 
+  "atribuição de marketing", 
+  "nota fiscal eletrônica", 
+  "histórico de ofertas", 
+  "boleto bancário", 
+  "cartão de crédito", 
+  "PIX", 
+  "invoice", 
+  "parâmetros de rastreamento", 
+  "eventos de pagamento", 
+  "snapshot de oferta", 
+  "DANFE", 
+  "XML fiscal", 
+  "campanhas de aquisição",
+  "diagnóstico de pagamento",
+  "gateway de pagamento"
+]
+---
+
+
+# Domínio: Detalhes de Integração com Plataformas
+
+
+## Visão Geral do Domínio
+
+
+As tabelas do domínio de Detalhes de Integração com Plataformas armazenam dados enriquecidos provenientes das diversas plataformas integradas ao sistema (Hotmart, Kiwify e outras), preservando informações granulares que são críticas para operações de suporte, análise, conformidade fiscal e atribuição de marketing.
+
+
+Este domínio funciona como uma camada complementar de informações que vai além dos dados fundamentais de negócio armazenados nas tabelas principais. Enquanto as tabelas core (transações, assinaturas, clientes) mantêm os dados essenciais para o funcionamento do sistema, as tabelas com prefixo `platform_` capturam detalhes específicos que, embora não sejam necessários para operações básicas, agregam valor significativo em cenários de:
+
+
+- **Troubleshooting**: Rastreamento detalhado de problemas em pagamentos
+- **Analytics**: Análise aprofundada de campanhas e comportamento de compra
+- **Compliance**: Manutenção de registros fiscais e contratuais completos
+- **Auditoria**: Preservação do contexto histórico exato de cada transação
+
+
+```mermaid
+graph TD
+    A[Transação Principal] --> B[platform_transaction_payment_history]
+    A --> C[platform_utm_history]
+    A --> D[platform_software_invoice_history]
+    A --> E[platform_sale_offer_history]
+    
+    B -->|Armazena| F[Tentativas e Eventos de Pagamento]
+    C -->|Registra| G[Parâmetros UTM e Tracking]
+    D -->|Mantém| H[Documentos Fiscais]
+    E -->|Preserva| I[Snapshot da Oferta]
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style B fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#bfb,stroke:#333,stroke-width:2px
+    style D fill:#fbf,stroke:#333,stroke-width:2px
+    style E fill:#bff,stroke:#333,stroke-width:2px
+```
+
+
+Este domínio é particularmente valioso quando se trabalha com múltiplas plataformas de venda, pois permite preservar detalhes específicos de cada plataforma sem sobrecarregar o modelo de dados principal com campos que seriam relevantes apenas para algumas integrações.
+
+
+(Ref: Detalhes de Integração com Plataformas, ID domain_platform_integration_details_001)
+
+
+## Histórico de Pagamentos e Tentativas
+
+
+A tabela `platform_transaction_payment_history` é o registro definitivo de cada evento relacionado ao processo de pagamento, desde tentativas iniciais até confirmações finais.
+
+
+```sql
+CREATE TABLE IF NOT EXISTS platform_transaction_payment_history (
+    id                SERIAL PRIMARY KEY,
+    transaction_id    INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    payment_method    payment_method_enum,                 -- Método de pagamento
+    payment_type      payment_type_enum,                   -- Tipo de pagamento
+    installments      INTEGER,                             -- Número de parcelas
+    value             NUMERIC(15, 4),                      -- Valor pago/tentado
+    payment_date      TIMESTAMP WITH TIME ZONE,            -- Data do pagamento/tentativa
+    card_brand        VARCHAR(50),                         -- Bandeira do cartão
+    card_last_digits  VARCHAR(4),                          -- Últimos dígitos
+    bank_slip_barcode TEXT,                                -- Código do boleto
+    pix_code          TEXT,                                -- Código PIX
+    metadata          JSONB,                               -- Metadados adicionais
+    created_at        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+
+### Fluxo Completo de Pagamentos
+
+
+Enquanto a tabela `transactions` registra apenas o estado final e bem-sucedido de um pagamento, esta tabela captura toda a jornada, incluindo:
+
+
+1. **Tentativas rejeitadas** por insuficiência de fundos, problemas no cartão ou suspeita de fraude
+2. **Mudanças de método de pagamento** quando o cliente tenta primeiro um cartão, depois outro, e finalmente um PIX
+3. **Confirmações parciais** em casos de pagamentos em etapas ou autorização prévia seguida de captura
+4. **Metadados específicos do gateway** que podem ser cruciais para diagnóstico de problemas
+
+
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant Gateway
+    participant Sistema
+    participant DB as Banco de Dados
+    
+    Cliente->>Gateway: Tenta pagamento (Cartão A)
+    Gateway->>Sistema: Notifica tentativa (Recusado)
+    Sistema->>DB: Registra tentativa falha
+    Note over DB: payment_history: cartão A recusado
+    
+    Cliente->>Gateway: Tenta pagamento (Cartão B)
+    Gateway->>Sistema: Notifica tentativa (Aprovado)
+    Sistema->>DB: Registra tentativa bem-sucedida
+    Note over DB: payment_history: cartão B aprovado
+    Sistema->>DB: Atualiza transaction.status = "Aprovada"
+```
+
+
+### Uso do Campo JSONB para Flexibilidade
+
+
+O campo `metadata` (JSONB) é especialmente valioso para armazenar informações específicas de cada gateway ou plataforma:
+
+
+```json
+// Exemplo de metadata para recusa de cartão via Stripe
+{
+  "gateway_specific_code": "card_declined",
+  "decline_code": "insufficient_funds",
+  "risk_level": "normal",
+  "gateway_request_id": "req_zKFB1N5TjpQA4W",
+  "processor_response": {
+    "avs_result_code": "Z",
+    "cvv_result_code": "M"
+  },
+  "attempted_at": "2023-11-15T14:23:18Z"
+}
+```
+
+
+Isso permite capturar detalhes específicos sem precisar adicionar dezenas de colunas que seriam relevantes apenas para alguns gateways ou situações específicas.
+
+
+### Casos de Uso Críticos
+
+
+1. **Diagnóstico de Falhas Recorrentes**:
+   ```sql
+   -- Identificar padrões de falha para um cliente específico
+   SELECT 
+       payment_date,
+       payment_method,
+       card_brand,
+       card_last_digits,
+       metadata->>'gateway_specific_code' AS error_code,
+       metadata->>'decline_code' AS decline_reason
+   FROM 
+       platform_transaction_payment_history
+   WHERE 
+       transaction_id IN (SELECT id FROM transactions WHERE customer_id = 12345)
+       AND metadata->>'gateway_specific_code' IN ('card_declined', 'processing_error')
+   ORDER BY 
+       payment_date DESC;
+   ```
+
+
+2. **Análise de Conversão por Método de Pagamento**:
+   ```sql
+   -- Taxa de sucesso por método de pagamento
+   SELECT 
+       payment_method,
+       COUNT(*) AS attempts,
+       COUNT(*) FILTER (WHERE EXISTS (
+           SELECT 1 FROM transactions t 
+           WHERE t.id = transaction_id AND t.status_id = 1 -- Status aprovado
+       )) AS successful_payments,
+       ROUND(COUNT(*) FILTER (WHERE EXISTS (
+           SELECT 1 FROM transactions t 
+           WHERE t.id = transaction_id AND t.status_id = 1
+       )) * 100.0 / COUNT(*), 2) AS success_rate
+   FROM 
+       platform_transaction_payment_history
+   WHERE 
+       payment_date BETWEEN '2023-01-01' AND '2023-12-31'
+   GROUP BY 
+       payment_method
+   ORDER BY 
+       success_rate DESC;
+   ```
+
+
+3. **Timeline Completa de um Pagamento Problemático**:
+   ```sql
+   -- Reconstruir sequência de eventos para suporte ao cliente
+   SELECT 
+       to_char(payment_date, 'YYYY-MM-DD HH24:MI:SS') AS timestamp,
+       payment_method,
+       value,
+       CASE 
+           WHEN metadata->>'gateway_specific_code' IN ('card_declined', 'processing_error') THEN 'Falha'
+           WHEN EXISTS (SELECT 1 FROM transactions t WHERE t.id = transaction_id AND t.status_id = 1) THEN 'Sucesso'
+           ELSE 'Pendente'
+       END AS status,
+       COALESCE(metadata->>'decline_code', metadata->>'status_detail', 'N/A') AS details
+   FROM 
+       platform_transaction_payment_history
+   WHERE 
+       transaction_id = 987654
+   ORDER BY 
+       payment_date;
+   ```
+
+
+(Ref: Detalhes de Integração com Plataformas, ID domain_platform_integration_details_001)
+
+
+## Rastreamento de Marketing e Atribuição
+
+
+A tabela `platform_utm_history` preserva os parâmetros de rastreamento de marketing que estavam presentes no momento da conversão, permitindo análises precisas de atribuição e ROI.
+
+
+```sql
+CREATE TABLE IF NOT EXISTS platform_utm_history (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    utm_source     VARCHAR(255),                           -- Origem
+    utm_medium     VARCHAR(255),                           -- Meio
+    utm_campaign   VARCHAR(255),                           -- Campanha
+    utm_term       VARCHAR(255),                           -- Termo
+    utm_content    VARCHAR(255),                           -- Conteúdo
+    capture_date   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+
+### Entendendo Parâmetros UTM
+
+
+Os parâmetros UTM (Urchin Tracking Module) são a espinha dorsal da atribuição de marketing digital:
+
+
+| Parâmetro | Descrição | Exemplos |
+|-----------|-----------|----------|
+| `utm_source` | A origem do tráfego | google, facebook, newsletter, instagram |
+| `utm_medium` | O canal de marketing | cpc, email, social, banner, affiliate |
+| `utm_campaign` | Nome específico da campanha | black_friday_2023, launch_course_v2 |
+| `utm_term` | Palavras-chave (principalmente em campanhas pagas) | curso_online, mentorias_financas |
+| `utm_content` | Diferencia versões do mesmo anúncio | button_green, video_testimonial |
+
+
+### Fluxo de Captura de UTM
+
+
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant Landing as Landing Page
+    participant Checkout as Página de Checkout
+    participant Sistema
+    
+    Cliente->>Landing: Clica em link com UTMs
+    Note over Cliente,Landing: ?utm_source=facebook&utm_medium=cpc
+    Landing->>Landing: Armazena UTMs em cookies/sessão
+    Cliente->>Checkout: Navega para o checkout
+    Checkout->>Checkout: Recupera UTMs da sessão
+    Cliente->>Checkout: Finaliza compra
+    Checkout->>Sistema: Envia transação + UTMs
+    Sistema->>Sistema: Registra transação
+    Sistema->>Sistema: Armazena UTMs na platform_utm_history
+```
+
+
+### Análises Poderosas Habilitadas
+
+
+1. **Performance por Canal de Marketing**:
+   ```sql
+   -- ROI por fonte e meio
+   SELECT 
+       puh.utm_source,
+       puh.utm_medium,
+       COUNT(DISTINCT t.id) AS transactions,
+       SUM(t.offer_price) AS total_revenue,
+       AVG(t.offer_price) AS avg_order_value,
+       -- Suponha que temos uma tabela de custos de marketing
+       SUM(t.offer_price) / NULLIF(SUM(mc.cost), 0) AS roi
+   FROM 
+       platform_utm_history puh
+   JOIN 
+       transactions t ON puh.transaction_id = t.id
+   LEFT JOIN 
+       marketing_costs mc ON puh.utm_source = mc.source 
+                         AND puh.utm_medium = mc.medium
+                         AND puh.utm_campaign = mc.campaign
+   WHERE 
+       t.order_date BETWEEN '2023-01-01' AND '2023-03-31'
+   GROUP BY 
+       puh.utm_source, puh.utm_medium
+   ORDER BY 
+       total_revenue DESC;
+   ```
+
+
+2. **Análise de Conteúdo e Variações**:
+   ```sql
+   -- Performance de diferentes variações de anúncios
+   SELECT 
+       puh.utm_campaign,
+       puh.utm_content,
+       COUNT(DISTINCT t.id) AS conversions,
+       SUM(t.offer_price) AS revenue,
+       COUNT(DISTINCT t.customer_id) AS unique_customers
+   FROM 
+       platform_utm_history puh
+   JOIN 
+       transactions t ON puh.transaction_id = t.id
+   WHERE 
+       puh.utm_campaign = 'summer_launch_2023'
+   GROUP BY 
+       puh.utm_campaign, puh.utm_content
+   ORDER BY 
+       revenue DESC;
+   ```
+
+
+3. **Jornada do Cliente Multi-touch**:
+   ```sql
+   -- Visualizar múltiplos pontos de contato antes da conversão
+   WITH customer_touchpoints AS (
+       SELECT 
+           c.id AS customer_id,
+           c.email,
+           t.id AS transaction_id,
+           t.order_date,
+           puh.utm_source,
+           puh.utm_medium,
+           puh.utm_campaign,
+           ROW_NUMBER() OVER (PARTITION BY c.id ORDER BY t.order_date) AS touch_sequence
+       FROM 
+           customers c
+       JOIN 
+           transactions t ON c.id = t.customer_id
+       JOIN 
+           platform_utm_history puh ON t.id = puh.transaction_id
+   )
+   SELECT 
+       ct1.customer_id,
+       ct1.email,
+       -- Primeiro toque
+       ct1.utm_source AS first_source,
+       ct1.utm_medium AS first_medium,
+       ct1.utm_campaign AS first_campaign,
+       -- Último toque (conversão)
+       ct_last.utm_source AS conversion_source,
+       ct_last.utm_medium AS conversion_medium,
+       ct_last.utm_campaign AS conversion_campaign,
+       ct_last.order_date AS conversion_date
+   FROM 
+       customer_touchpoints ct1
+   JOIN (
+       SELECT 
+           customer_id, 
+           MAX(touch_sequence) AS last_touch
+       FROM 
+           customer_touchpoints
+       GROUP BY 
+           customer_id
+   ) max_touch ON ct1.customer_id = max_touch.customer_id
+   JOIN 
+       customer_touchpoints ct_last ON max_touch.customer_id = ct_last.customer_id 
+                                    AND max_touch.last_touch = ct_last.touch_sequence
+   WHERE 
+       ct1.touch_sequence = 1
+       AND max_touch.last_touch > 1 -- Clientes com múltiplos toques
+   ORDER BY 
+       ct_last.order_date DESC;
+   ```
+
+
+### Integração com Afiliados
+
+
+Uma característica importante é a relação entre os parâmetros UTM e o sistema de comissionamento de afiliados:
+
+
+```sql
+-- Correlação entre UTM source e tracking de afiliados
+SELECT 
+    t.tracking_source,
+    puh.utm_source,
+    COUNT(*) AS transaction_count,
+    SUM(t.offer_price) AS total_revenue,
+    SUM(pc.amount) AS total_commission
+FROM 
+    transactions t
+JOIN 
+    platform_utm_history puh ON t.id = puh.transaction_id
+LEFT JOIN 
+    platform_commission pc ON t.id = pc.transaction_id AND pc.source = 'AFFILIATE'
+GROUP BY 
+    t.tracking_source, puh.utm_source
+ORDER BY 
+    transaction_count DESC;
+```
+
+
+Este tipo de análise pode revelar padrões importantes, como afiliados (tracking_source) que geram vendas a partir de múltiplas fontes UTM, ou situações onde o crédito de afiliado não corresponde à fonte de tráfego real.
+
+
+(Ref: Detalhes de Integração com Plataformas, ID domain_platform_integration_details_001)
+
+
+## Documentação Fiscal e Compliance
+
+
+A tabela `platform_software_invoice_history` mantém um registro completo dos documentos fiscais associados a cada transação, essencial para conformidade fiscal e processos contábeis.
+
+
+```sql
+CREATE TABLE IF NOT EXISTS platform_software_invoice_history (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    invoice_number VARCHAR(100),                           -- Número da NF
+    invoice_series VARCHAR(20),                            -- Série da NF
+    invoice_key    VARCHAR(255) UNIQUE,                    -- Chave de acesso
+    issue_date     TIMESTAMP WITH TIME ZONE,               -- Data de emissão
+    status         VARCHAR(50),                            -- Status da NF
+    xml_url        TEXT,                                   -- URL do XML
+    pdf_url        TEXT,                                   -- URL do PDF
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+
+### Elementos Fiscais Essenciais
+
+
+Esta tabela armazena informações críticas relacionadas a documentos fiscais:
+
+
+1. **Identificação Única**: Cada documento fiscal possui identificadores únicos como `invoice_number` (número sequencial), `invoice_series` (série da nota) e `invoice_key` (chave de acesso da NF-e, com 44 dígitos no Brasil).
+
+
+2. **Rastreabilidade Temporal**: O campo `issue_date` registra quando o documento foi oficialmente emitido, podendo ser diferente da data da transação.
+
+
+3. **Status Dinâmico**: O campo `status` rastreia o estado atual do documento (ex: Emitida, Cancelada, Denegada).
+
+
+4. **Acesso aos Documentos**: Os campos `xml_url` e `pdf_url` garantem acesso permanente aos arquivos originais, mesmo se a plataforma de emissão mudar ou ficar indisponível.
+
+
+### Ciclo de Vida do Documento Fiscal
+
+
+```mermaid
+stateDiagram-v2
+    [*] --> Emissão
+    Emissão --> Emitida
+    Emitida --> CanceladaPeloPrestador: Erro/Cancelamento
+    Emitida --> CanceladaPeloTomador: Reembolso/Devolução
+    Emitida --> RetidaFisco: Problemas Fiscais
+    Emitida --> [*]: Vencimento do Prazo Legal
+    CanceladaPeloPrestador --> CartaDeCorreção: Apenas dados não-fiscais
+    RetidaFisco --> Liberada: Após regularização
+    
+    Emitida --> SubstituídaPorOutra: Substituição
+```
+
+
+### Aplicações Práticas
+
+
+1. **Emissão de Segunda Via para Clientes**:
+   ```sql
+   -- Obter links para documentos fiscais de um cliente
+   SELECT 
+       t.transaction_id AS num_pedido,
+       p.name AS produto,
+       t.order_date AS data_compra,
+       psih.invoice_number AS num_nota,
+       psih.issue_date AS data_emissao,
+       psih.pdf_url AS link_danfe
+   FROM 
+       customers c
+   JOIN 
+       transactions t ON c.id = t.customer_id
+   JOIN 
+       transaction_items ti ON t.id = ti.transaction_id
+   JOIN 
+       products p ON ti.product_id = p.id
+   LEFT JOIN 
+       platform_software_invoice_history psih ON t.id = psih.transaction_id
+   WHERE 
+       c.email = 'cliente@exemplo.com'
+       AND t.order_date > CURRENT_DATE - INTERVAL '1 year'
+   ORDER BY 
+       t.order_date DESC;
+   ```
+
+
+2. **Conciliação Contábil**:
+   ```sql
+   -- Relatório de notas fiscais por mês para conciliação
+   SELECT 
+       DATE_TRUNC('month', psih.issue_date) AS mes_referencia,
+       COUNT(*) AS total_documentos,
+       SUM(t.offer_price) AS valor_total_documentos,
+       COUNT(*) FILTER (WHERE psih.status = 'Cancelada') AS documentos_cancelados,
+       SUM(t.offer_price) FILTER (WHERE psih.status = 'Cancelada') AS valor_documentos_cancelados
+   FROM 
+       platform_software_invoice_history psih
+   JOIN 
+       transactions t ON psih.transaction_id = t.id
+   WHERE 
+       psih.issue_date BETWEEN '2023-01-01' AND '2023-12-31'
+   GROUP BY 
+       DATE_TRUNC('month', psih.issue_date)
+   ORDER BY 
+       mes_referencia;
+   ```
+
+
+3. **Auditoria Fiscal**:
+   ```sql
+   -- Identificar inconsistências para auditoria
+   SELECT 
+       t.transaction_id,
+       t.order_date,
+       t.offer_price AS valor_transacao,
+       psih.invoice_number,
+       psih.issue_date,
+       CASE 
+           WHEN psih.invoice_number IS NULL THEN 'Sem NF'
+           WHEN DATE(psih.issue_date) > DATE(t.order_date) + 30 THEN 'NF Emitida com Atraso'
+           WHEN psih.status = 'Cancelada' AND t.status_id <> 
+               (SELECT id FROM transaction_statuses WHERE status = 'Reembolsada') 
+               THEN 'NF Cancelada mas Transação Ativa'
+           ELSE 'OK'
+       END AS situacao_fiscal
+   FROM 
+       transactions t
+   LEFT JOIN 
+       platform_software_invoice_history psih ON t.id = psih.transaction_id
+   WHERE 
+       t.order_date BETWEEN '2023-01-01' AND '2023-12-31'
+       AND (
+           psih.invoice_number IS NULL 
+           OR DATE(psih.issue_date) > DATE(t.order_date) + 30
+           OR (psih.status = 'Cancelada' AND t.status_id <> 
+               (SELECT id FROM transaction_statuses WHERE status = 'Reembolsada'))
+       );
+   ```
+
+
+### Considerações de Implementação
+
+
+1. **Integração com Software Fiscal**: Esta tabela geralmente é alimentada por integrações com software especializado de emissão de notas fiscais ou APIs governamentais.
+
+
+2. **Retenção de Documentos**: É essencial manter estes registros pelo período mínimo exigido pela legislação local (geralmente 5-10 anos).
+
+
+3. **Backup de Documentos**: Além dos URLs, considere manter cópias locais dos arquivos XML e PDF para garantir disponibilidade mesmo se serviços externos ficarem indisponíveis.
+
+
+4. **Validação de Chaves**: Implementar validação de formato para campos como a chave de acesso, que geralmente seguem um formato específico conforme a legislação local.
+
+
+(Ref: Detalhes de Integração com Plataformas, ID domain_platform_integration_details_001)
+
+
+## Preservação de Contexto Histórico de Ofertas
+
+
+A tabela `platform_sale_offer_history` cria snapshots imutáveis das condições de uma oferta exatamente como estavam no momento da venda, independentemente de mudanças futuras.
+
+
+```sql
+CREATE TABLE IF NOT EXISTS platform_sale_offer_history (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER REFERENCES transactions,        -- Transação associada
+    code           VARCHAR(100),                           -- Código da oferta
+    offer_id       VARCHAR(100),                           -- ID da oferta
+    offer_name     VARCHAR(255),                           -- Nome da oferta
+    description    VARCHAR(500),                           -- Descrição da oferta
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+
+### Importância do Snapshot Histórico
+
+
+Ofertas e produtos frequentemente mudam ao longo do tempo. Nomes são ajustados, preços modificados e descrições atualizadas. No entanto, para fins de:
+
+
+1. **Suporte ao Cliente**: É crucial saber exatamente o que foi prometido ao cliente no momento da compra
+2. **Conformidade Legal**: Documentar os termos e condições que o cliente aceitou quando efetuou a compra
+3. **Resolução de Disputas**: Fornecer evidência das condições originais em caso de reclamações
+4. **Análise de Performance**: Comparar diferentes versões de ofertas e suas taxas de conversão
+
+
+Esta tabela mantém um registro imutável desses detalhes, enquanto as tabelas principais (`offers`, `products`, etc.) podem ser atualizadas conforme necessário.
+
+
+### Caso de Uso Ilustrativo
+
+
+```mermaid
+sequenceDiagram
+    participant P as Produto/Oferta
+    participant T as Transação
+    participant S as Snapshot
+    
+    Note over P: Estado inicial: "Curso Básico - 12 aulas"
+    T->>S: Compra realizada (snapshot criado)
+    Note over S: Armazena: "Curso Básico - 12 aulas"
+    Note over P: 2 meses depois: mudança para "Curso Básico - 15 aulas"
+    
+    Note over T,S: 6 meses depois: Cliente questiona conteúdo
+    S->>T: Verifica snapshot da época da compra
+    Note over T,S: Confirma-se que cliente comprou versão com 12 aulas
+```
+
+
+### Consultas Úteis para Análise
+
+
+1. **Evolução de Ofertas ao Longo do Tempo**:
+   ```sql
+   -- Verificar como uma oferta específica mudou nas transações
+   SELECT 
+       MIN(t.order_date) AS primeira_venda,
+       MAX(t.order_date) AS venda_mais_recente,
+       psoh.offer_name,
+       psoh.description,
+       COUNT(*) AS total_vendas
+   FROM 
+       platform_sale_offer_history psoh
+   JOIN 
+       transactions t ON psoh.transaction_id = t.id
+   WHERE 
+       psoh.offer_id = 'OFFER123'
+   GROUP BY 
+       psoh.offer_name, psoh.description
+   ORDER BY 
+       primeira_venda;
+   ```
+
+
+2. **Verificação de Condições Históricas**:
+   ```sql
+   -- Confirmar exatamente o que foi oferecido em uma transação específica
+   SELECT 
+       t.transaction_id,
+       t.order_date,
+       c.name AS customer_name,
+       c.email,
+       psoh.offer_name,
+       psoh.description,
+       o.name AS current_offer_name,
+       o.description AS current_offer_description,
+       CASE 
+           WHEN psoh.offer_name <> o.name OR psoh.description <> o.description 
+           THEN 'Modificada'
+           ELSE 'Mesma'
+       END AS offer_status
+   FROM 
+       transactions t
+   JOIN 
+       customers c ON t.customer_id = c.id
+   JOIN 
+       platform_sale_offer_history psoh ON t.id = psoh.transaction_id
+   LEFT JOIN 
+       offers o ON psoh.offer_id = o.offer_id
+   WHERE 
+       t.transaction_id = 'TX987654';
+   ```
+
+
+3. **Análise A/B de Versões de Oferta**:
+   ```sql
+   -- Comparar performance de diferentes versões da mesma oferta
+   SELECT 
+       SUBSTRING(psoh.offer_name FROM 1 FOR 50) AS offer_version,
+       COUNT(*) AS transactions,
+       SUM(t.offer_price) AS total_revenue,
+       AVG(t.offer_price) AS avg_order_value,
+       COUNT(*) * 100.0 / SUM(COUNT(*)) OVER () AS percentage_of_sales
+   FROM 
+       platform_sale_offer_history psoh
+   JOIN 
+       transactions t ON psoh.transaction_id = t.id
+   WHERE 
+       psoh.code = 'BASICCOURSE'
+       AND t.order_date BETWEEN '2023-01-01' AND '2023-12-31'
+   GROUP BY 
+       SUBSTRING(psoh.offer_name FROM 1 FOR 50)
+   ORDER BY 
+       total_revenue DESC;
+   ```
+
+
+### Extensões e Possibilidades
+
+
+Para ofertas mais complexas, considere expandir esta tabela para incluir:
+
+
+1. **Preços Históricos**: `original_price`, `discount_price`, `discount_percentage`
+2. **Condições Temporais**: `offer_start_date`, `offer_end_date`, `limited_quantity`
+3. **Conteúdo Específico**: `included_features`, `bonus_items`, `guarantee_terms`
+
+
+Isso cria um registro ainda mais completo do contexto em que a transação ocorreu.
+
+
+(Ref: Detalhes de Integração com Plataformas, ID domain_platform_integration_details_001)
+
+
+## Integração com Analytics e Sistemas Externos
+
+
+Os dados armazenados neste domínio são particularmente valiosos quando integrados com sistemas externos de análise e processamento:
+
+
+### 1. Integração com Ferramentas de Marketing Analytics
+
+
+```mermaid
+graph LR
+    A[platform_utm_history] --> B[ETL/Data Pipeline]
+    B --> C[Data Warehouse]
+    C --> D[Google Analytics 4]
+    C --> E[Tableau/Power BI]
+    C --> F[Customer Data Platform]
+    
+    style A fill:#bbf,stroke:#333,stroke-width:2px
+```
+
+
+Os dados UTM podem ser exportados regularmente para:
+- **Google Analytics**: Para correlacionar com dados de comportamento no site
+- **Plataformas de BI**: Para dashboards detalhados de atribuição e ROI
+- **CDPs**: Para enriquecer perfis de clientes com dados de aquisição
+
+
+### 2. Integração com Sistemas Fiscais e Contábeis
+
+
+```mermaid
+graph LR
+    A[platform_software_invoice_history] --> B[Sistema de Gestão Fiscal]
+    A --> C[Software Contábil]
+    A --> D[Exportação para Órgãos Fiscais]
+    
+    style A fill:#fbf,stroke:#333,stroke-width:2px
+```
+
+
+Os registros fiscais são fundamentais para:
+- **Conciliação Contábil**: Fechamento mensal de receitas e impostos
+- **Auditorias**: Fornecer documentação completa quando solicitado
+- **Declarações Fiscais**: Preparar relatórios oficiais para autoridades fiscais
+
+
+### 3. Integração com Suporte ao Cliente
+
+
+```mermaid
+graph LR
+    A[platform_transaction_payment_history] --> B[Helpdesk/CRM]
+    C[platform_sale_offer_history] --> B
+    D[platform_software_invoice_history] --> B
+    
+    style A fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#bff,stroke:#333,stroke-width:2px
+    style D fill:#fbf,stroke:#333,stroke-width:2px
+```
+
+
+Equipes de suporte precisam acessar:
+- **Histórico de Pagamentos**: Para diagnosticar problemas com tentativas de pagamento
+- **Condições da Oferta**: Para verificar o que foi prometido ao cliente
+- **Documentos Fiscais**: Para enviar segundas vias quando solicitado
+
+
+### Consultas Integradas para Análise Completa
+
+
+Uma das grandes vantagens deste domínio é a capacidade de criar visões integradas que combinam diferentes aspectos de uma transação:
+
+
+```sql
+-- Visão 360° de uma transação específica
+SELECT 
+    t.transaction_id,
+    t.order_date,
+    c.name AS customer_name,
+    c.email,
+    p.name AS product_name,
+    -- Detalhes da oferta comprada
+    psoh.offer_name,
+    psoh.description,
+    -- Dados de marketing
+    puh.utm_source,
+    puh.utm_medium,
+    puh.utm_campaign,
+    -- Detalhes do pagamento
+    ptph.payment_method,
+    ptph.payment_date,
+    ptph.card_brand,
+    ptph.installments,
+    -- Documento fiscal
+    psih.invoice_number,
+    psih.issue_date,
+    psih.pdf_url
+FROM 
+    transactions t
+JOIN 
+    customers c ON t.customer_id = c.id
+JOIN 
+    transaction_items ti ON t.id = ti.transaction_id
+JOIN 
+    products p ON ti.product_id = p.id
+LEFT JOIN 
+    platform_sale_offer_history psoh ON t.id = psoh.transaction_id
+LEFT JOIN 
+    platform_utm_history puh ON t.id = puh.transaction_id
+LEFT JOIN 
+    platform_transaction_payment_history ptph ON t.id = ptph.transaction_id
+LEFT JOIN 
+    platform_software_invoice_history psih ON t.id = psih.transaction_id
+WHERE 
+    t.transaction_id = 'TX123456';
+```
+
+
+Este tipo de consulta fornece uma visão completa da transação que seria impossível construir usando apenas as tabelas principais do sistema.
+
+
+(Ref: Detalhes de Integração com Plataformas, ID domain_platform_integration_details_001)
+
+
+## Considerações de Segurança e Otimização
+
+
+### Proteção de Dados Sensíveis
+
+
+Este domínio pode conter informações confidenciais que requerem proteção especial:
+
+
+1. **Dados de Pagamento**: 
+   - Armazenar apenas os últimos 4 dígitos do cartão, nunca o número completo
+   - Considerar mascaramento ou criptografia para dados sensíveis
+   - Implementar controle de acesso rigoroso para visualização destes dados
+
+
+2. **Documentos Fiscais**:
+   - Garantir que URLs para documentos fiscais sejam protegidos e exijam autenticação
+   - Considerar expiração automática de links compartilhados
+   - Manter logs detalhados de quem acessou documentos fiscais
+
+
+### Índices e Otimização de Performance
+
+
+Para garantir consultas eficientes em um volume crescente de dados:
+
+
+```sql
+-- Índices recomendados para cada tabela
+
+
+-- platform_transaction_payment_history
+CREATE INDEX IF NOT EXISTS idx_ptph_transaction_id ON platform_transaction_payment_history (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_ptph_payment_date ON platform_transaction_payment_history (payment_date);
+CREATE INDEX IF NOT EXISTS idx_ptph_payment_method ON platform_transaction_payment_history (payment_method);
+
+
+-- platform_utm_history
+CREATE INDEX IF NOT EXISTS idx_puh_transaction_id ON platform_utm_history (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_puh_utm_source_medium ON platform_utm_history (utm_source, utm_medium);
+CREATE INDEX IF NOT EXISTS idx_puh_utm_campaign ON platform_utm_history (utm_campaign);
+
+
+-- platform_software_invoice_history
+CREATE INDEX IF NOT EXISTS idx_psih_transaction_id ON platform_software_invoice_history (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_psih_invoice_number ON platform_software_invoice_history (invoice_number);
+CREATE INDEX IF NOT EXISTS idx_psih_issue_date ON platform_software_invoice_history (issue_date);
+CREATE INDEX IF NOT EXISTS idx_psih_invoice_key ON platform_software_invoice_history (invoice_key);
+
+
+-- platform_sale_offer_history
+CREATE INDEX IF NOT EXISTS idx_psoh_transaction_id ON platform_sale_offer_history (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_psoh_offer_id ON platform_sale_offer_history (offer_id);
+CREATE INDEX IF NOT EXISTS idx_psoh_code ON platform_sale_offer_history (code);
+```
+
+
+### Estratégias de Particionamento
+
+
+Para tabelas que crescem rapidamente, considere particionamento por data:
+
+
+```sql
+-- Exemplo: Particionar platform_transaction_payment_history por mês
+CREATE TABLE platform_transaction_payment_history_partitioned (
+    id SERIAL,
+    transaction_id INTEGER NOT NULL,
+    payment_method payment_method_enum,
+    payment_type payment_type_enum,
+    payment_date TIMESTAMP WITH TIME ZONE,
+    -- outros campos...
+    PRIMARY KEY (id, payment_date)
+) PARTITION BY RANGE (payment_date);
+
+
+-- Criar partições por trimestre
+CREATE TABLE platform_transaction_payment_history_q1_2023 PARTITION OF 
+    platform_transaction_payment_history_partitioned
+    FOR VALUES FROM ('2023-01-01') TO ('2023-04-01');
+
+
+CREATE TABLE platform_transaction_payment_history_q2_2023 PARTITION OF 
+    platform_transaction_payment_history_partitioned
+    FOR VALUES FROM ('2023-04-01') TO ('2023-07-01');
+```
+
+
+### Políticas de Retenção e Arquivamento
+
+
+À medida que os dados crescem, considere estratégias para gerenciar o ciclo de vida:
+
+
+1. **Retenção Escalonada**:
+   - Dados completos e detalhados para transações recentes (1-2 anos)
+   - Dados resumidos ou agregados para transações mais antigas
+   - Arquivamento em armazenamento de baixo custo para dados muito antigos, mas que precisam ser preservados
+
+
+2. **JSON Compression**:
+   - Para campos como `metadata` na tabela de histórico de pagamentos, utilizar compressão para grandes objetos JSON
+
+
+```sql
+-- Exemplo: View para automatizar política de acesso baseada em idade dos dados
+CREATE OR REPLACE VIEW platform_payment_history_with_retention AS
+SELECT
+    id,
+    transaction_id,
+    payment_method,
+    payment_type,
+    payment_date,
+    value,
+    -- Mascara detalhes sensíveis para registros mais antigos
+    CASE 
+        WHEN payment_date > CURRENT_DATE - INTERVAL '2 years' THEN card_brand
+        ELSE NULL
+    END AS card_brand,
+    CASE 
+        WHEN payment_date > CURRENT_DATE - INTERVAL '2 years' THEN card_last_digits
+        ELSE NULL
+    END AS card_last_digits,
+    -- Mantém apenas dados essenciais do metadata para registros antigos
+    CASE 
+        WHEN payment_date > CURRENT_DATE - INTERVAL '2 years' THEN metadata
+        ELSE jsonb_build_object('gateway_status', metadata->>'gateway_status')
+    END AS metadata
+FROM
+    platform_transaction_payment_history;
+```
+
+
+(Ref: Detalhes de Integração com Plataformas, ID domain_platform_integration_details_001)
+
+
+## Conclusão: Valor Estratégico do Domínio
+
+
+O Domínio de Detalhes de Integração com Plataformas representa uma camada de inteligência crítica que vai além do simples registro transacional, agregando contexto, rastreabilidade e conformidade ao ecossistema:
+
+
+### 1. Vantagem Competitiva através de Dados Enriquecidos
+
+
+```mermaid
+graph TD
+    A[Dados Básicos] -->|Enriquecidos Com| B[Detalhes de Plataforma]
+    B -->|Habilitam| C[Analytics Avançados]
+    B -->|Garantem| D[Compliance Fiscal]
+    B -->|Melhoram| E[Experiência do Cliente]
+    B -->|Preservam| F[Contexto Histórico]
+    
+    C -->|Gera| G[Decisões Baseadas em Dados]
+    G -->|Produz| H[Vantagem Competitiva]
+    D -->|Evita| I[Riscos Legais]
+    I -->|Protege| H
+    E -->|Aumenta| J[Retenção e Satisfação]
+    J -->|Fortalece| H
+    F -->|Suporta| K[Adaptabilidade a Mudanças]
+    K -->|Potencializa| H
+```
+
+
+### 2. Resolução de Problemas Específicos de Negócio
+
+
+| Desafio de Negócio | Solução com este Domínio |
+|--------------------|---------------------------|
+| Otimização de ROI de Marketing | Análise detalhada por UTM para identificar canais mais eficientes |
+| Disputas sobre Condições Prometidas | Verificação em snapshots históricos das ofertas originais |
+| Conformidade Fiscal | Registro completo e acessível de documentos fiscais |
+| Diagnóstico de Problemas de Pagamento | Timeline detalhada de tentativas com metadados específicos |
+| Suporte ao Cliente de Qualidade | Acesso imediato a todo o contexto e histórico da transação |
+
+
+### 3. Capacidade Analítica Diferenciada
+
+
+O verdadeiro poder deste domínio está na sua capacidade de responder a perguntas complexas que cruzam diferentes perspectivas:
+
+
+- "Qual campanha de marketing gera clientes com maior taxa de renovação de assinatura?"
+- "Como o método de pagamento afeta o comportamento de compras futuras dos clientes?"
+- "Existe correlação entre tentativas falhas de pagamento e cancelamentos futuros?"
+- "Quais versões de ofertas geraram maior receita média por cliente ao longo do tempo?"
+
+
+As tabelas deste domínio, quando combinadas com dados de outros domínios, permitem análises multi-dimensionais que transformam dados brutos em insights estratégicos, suportando decisões mais informadas e data-driven.
+
+
+### Adoção e Implementação
+
+
+Para organizações que buscam implementar ou expandir este domínio, recomenda-se:
+
+
+1. **Priorização Baseada em Valor**: Iniciar com as tabelas que resolvem os desafios mais críticos do negócio
+2. **Implementação Incremental**: Adicionar campos e funcionalidades conforme a maturidade do sistema cresce
+3. **Integração Planejada**: Definir claramente pontos de integração com sistemas externos
+4. **Governança de Dados**: Estabelecer políticas claras sobre retenção, acesso e uso dos dados
+
+
+Com a implementação adequada, este domínio transforma dados que seriam efêmeros ou dispersos em um ativo estratégico valioso que suporta operações diárias e decisões de longo prazo.
+
+
+(Ref: Detalhes de Integração com Plataformas, ID domain_platform_integration_details_001)
+```
