@@ -1,0 +1,555 @@
+﻿# `Core_DB_Architecture.md`
+
+
+```markdown
+---
+title: "Arquitetura do Banco de Dados Unificado de Vendas e Assinaturas"
+id: "core_db_arch_001"
+doc_type: "architecture_document"
+doc_version: "1.3" # Atualizado para refletir a nova revisão
+date_created: "2025-04-23"
+date_updated: "2025-04-23" # Atualizado para refletir a revisão mais recente
+author: "João Castanheira"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Aprovado"
+environment: "Produção"
+related_docs: [
+  "core_db_design_001", 
+  "platform_integration_strategy_001", 
+  "core_db_glossary_001", 
+  "domain_customers_ecosystem_001", 
+  "domain_products_catalog_001", 
+  "domain_transactions_lifecycle_001", 
+  "domain_subscriptions_management_001", 
+  "domain_commission_system_001", 
+  "domain_platform_integration_details_001", 
+  "process_flow_purchase_lifecycle_001",
+  "process_flow_subscription_lifecycle_001",
+  "process_flow_refund_chargeback_001",
+  "ref_db_schema_details_001"
+] # Expandido com todas as referências cruzadas
+db_engine: "PostgreSQL 13+"
+embedding_guide_concepts: [
+  "arquitetura de dados", 
+  "modelo relacional", 
+  "sistema de transações", 
+  "unificação de dados", 
+  "domínios funcionais", 
+  "diagrama ER", 
+  "banco de dados multiplataforma", 
+  "organização de schema", 
+  "estratégia de unificação", 
+  "normalização de dados", 
+  "identificação multiplataforma", 
+  "fluxos de dados", 
+  "ciclo de vida de venda", 
+  "ciclo de vida de assinatura", 
+  "fluxo de comissão", 
+  "histórico de dados",
+  "independência de plataforma",
+  "pipeline de ETL",
+  "mapeamento de domínios",
+  "integração de dados"
+] # Expandido com conceitos adicionais
+---
+
+
+# Arquitetura do Banco de Dados Unificado de Vendas e Assinaturas
+
+
+## Visão Geral e Propósito
+
+
+O banco de dados `joaocastanheira_bancodedados` foi projetado com o objetivo primário de unificar e normalizar dados de vendas, assinaturas e comissões provenientes de múltiplas plataformas de e-commerce digital (como Hotmart, Kiwify e outras futuras integrações). Esta solução resolve o desafio crítico de consolidar dados dispersos em diferentes sistemas, cada um com suas próprias terminologias, estruturas e formatos.
+
+
+### Objetivos Fundamentais
+
+
+1. **Unificação de Dados Multiplataforma**: Criar uma fonte única e confiável para análise de performance de negócio, independente da plataforma onde as transações ocorreram.
+2. **Normalização Terminológica**: Estabelecer um vocabulário comum para status de transação, métodos de pagamento e outros conceitos que diferem entre plataformas.
+3. **Rastreabilidade Bidirecional**: Manter vínculos com os sistemas de origem preservando IDs externos, permitindo reconciliação precisa.
+4. **Suporte a Análises Complexas**: Facilitar análises de negócio que cruzam dados de múltiplas plataformas, impossíveis de realizar com os dados isolados.
+5. **Extensibilidade**: Projetar um modelo flexível que possa acomodar novas plataformas com esforço mínimo de integração.
+
+
+### Papel Crítico no Ecossistema
+
+
+Este banco de dados não é apenas um repositório, mas um **componente central de transformação** que:
+
+
+- **Normaliza Dados**: Converte diferentes representações para um formato unificado, conforme detalhado no documento **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md)**.
+- **Estabelece Relacionamentos**: Conecta entidades relacionadas mesmo quando originadas de plataformas diferentes.
+- **Preserva Histórico**: Mantém registros históricos essenciais para auditoria e análise temporal.
+- **Facilita a Interoperabilidade**: Permite que outros sistemas consumam dados padronizados.
+
+
+(Ref: Banco de Dados Unificado, ID core_db_arch_001)
+
+
+## Diagrama ER de Alto Nível
+
+
+O diagrama abaixo representa as principais entidades do banco de dados e seus relacionamentos em nível conceitual. Este modelo foi estruturado em torno de domínios funcionais bem definidos que refletem a realidade do negócio.
+
+
+```mermaid
+erDiagram
+    CUSTOMERS||--o{ TRANSACTIONS : realiza
+    CUSTOMERS||--o{ SUBSCRIPTIONS : assina
+    CUSTOMERS||--o|ADDRESSES : possui
+    
+    PRODUCTS||--o{ PLANS : oferece
+    PRODUCTS||--o{ TRANSACTION_ITEMS : vendido_em
+    
+    PLANS||--o{ SUBSCRIPTIONS : define
+    PLANS||--o{ OFFERS : disponibilizado_em
+    
+    TRANSACTIONS||--o{ TRANSACTION_ITEMS : contém
+    TRANSACTIONS||--o{ TRANSACTION_STATUS_HISTORY : registra
+    TRANSACTIONS||--o{ TRANSACTION_FEES : cobra
+    TRANSACTIONS||--o{ PLATFORM_COMMISSION : distribui
+    TRANSACTIONS||--||SUBSCRIPTIONS : origina
+    
+    SUBSCRIPTIONS||--o{ SUBSCRIPTION_STATUS_HISTORY : registra
+    
+    COMMISSION_PARTICIPANTS||--o{ PLATFORM_COMMISSION : recebe
+    COMMISSION_PARTICIPANTS||--o{ PARTICIPANT_ADDRESSES : tem
+    
+    TRANSACTION_STATUSES||--o{ TRANSACTIONS : classifica
+    TRANSACTION_STATUSES||--o{ SUBSCRIPTION_STATUS_HISTORY : classifica
+    TRANSACTION_STATUSES||--o{ TRANSACTION_STATUS_HISTORY : define
+```
+
+
+Este diagrama conceitual ilustra as relações-chave entre as entidades principais. Cada entidade corresponde a uma ou mais tabelas no modelo físico, dependendo das necessidades de normalização e performance. Para detalhes completos do schema físico, consulte o documento **[Referência Detalhada do Schema](ref_db_schema_details_001.md)**.
+
+
+### Características Centrais do Modelo
+
+
+- **Foco no Cliente**: Tudo começa com a entidade CUSTOMERS, representando o comprador unificado entre plataformas.
+- **Flexibilidade de Produto**: Produtos podem ser vendidos individualmente ou através de planos de assinatura.
+- **Histórico Completo**: Todas as mudanças de status em transações e assinaturas são registradas.
+- **Suporte a Multi-item**: Uma transação pode conter vários itens (produtos ou ofertas).
+- **Rastreamento Financeiro**: Taxas e comissões são modeladas explicitamente.
+- **Independência de Plataforma**: O design permite armazenar dados de qualquer plataforma de forma consistente.
+
+
+(Ref: Banco de Dados Unificado, ID core_db_arch_001)
+
+
+## Principais Fluxos de Relacionamento no Sistema
+
+
+Além da estrutura estática representada no diagrama ER, é fundamental entender como as principais entidades interagem nos fluxos de negócio. Estes fluxos demonstram a dinâmica do sistema e como os dados transitam entre os domínios.
+
+
+### 1. Fluxo de Vendas (Transação Única)
+
+
+Este fluxo representa a compra de um produto ou oferta que não é uma assinatura recorrente.
+```
+[customers] <-- (realiza) -- [transactions] -- (contém) --> [transaction_items] -- (refere-se a) --> [products/offers/plans]
+                                   |
+                                   |-- (registra status) --> [transaction_status_history]
+                                   |
+                                   |-- (cobra) --> [transaction_fees]
+                                   |
+                                   |-- (distribui comissão) --> [platform_commission] --> [commission_participants]
+                                   |
+                                   |-- (detalhes de pagamento) --> [platform_transaction_payment_history]
+                                   |
+                                   |-- (detalhes UTM) --> [platform_utm_history]
+                                   |
+                                   |-- (detalhes fiscais) --> [platform_software_invoice_history]
+                                   |
+                                   |-- (snapshot oferta) --> [platform_sale_offer_history]
+```
+**Descrição**: Um Cliente realiza uma Transação. Esta Transação contém Itens que referenciam Produtos, Ofertas ou Planos. A Transação gera registros de Histórico de Status, Taxas, Comissões (para Participantes), e vários detalhes específicos da plataforma (pagamento, UTM, nota fiscal, snapshot da oferta).
+
+
+Para detalhes aprofundados sobre este fluxo, consulte o documento **[Ciclo de Vida de Compra](process_flow_purchase_lifecycle_001.md)**.
+
+
+### 2. Fluxo de Assinatura e Recorrência
+
+
+Este fluxo descreve a criação de uma assinatura e suas transações recorrentes associadas.
+```
+[customers] <-- (assina) -- [subscriptions] -- (define) --> [plans] -- (oferece) --> [products]
+                                   |
+                                   |-- (registra status) --> [subscription_status_history]
+                                   |
+                                   |-- (origina transações) --> [transactions] (recorrência)
+```
+**Descrição**: Um Cliente assina um Plano, criando uma Assinatura. A Assinatura registra seu Histórico de Status e origina Transações recorrentes em intervalos definidos. Cada transação recorrente segue o Fluxo de Vendas descrito acima, mas está explicitamente ligada à Assinatura pai.
+
+
+Para detalhes aprofundados sobre este fluxo, consulte o documento **[Ciclo de Vida de Assinatura](process_flow_subscription_lifecycle_001.md)**.
+
+
+### 3. Fluxo de Comissionamento
+
+
+Este fluxo detalha como as comissões são atribuídas e registradas.
+```
+[transactions] -- (distribui comissão) --> [platform_commission] -- (recebe) --> [commission_participants]
+                                                                                       |
+                                                                                       |-- (tem) --> [participant_addresses]
+```
+**Descrição**: Uma Transação (seja única ou recorrente) pode distribuir Comissões para Participantes (produtores, afiliados, etc.), registrando o valor e a origem da comissão na tabela `platform_commission`. Os detalhes e endereços dos participantes são armazenados separadamente.
+
+
+Para detalhes sobre este domínio, consulte o documento **[Sistema de Comissionamento](domain_commission_system_001.md)**.
+
+
+### 4. Fluxo de Histórico e Auditoria
+
+
+Este fluxo mostra como as mudanças importantes são rastreadas.
+```
+[customers] -- (registra logs) --> [customer_logs]
+[transactions] -- (registra status) --> [transaction_status_history]
+[subscriptions] -- (registra status) --> [subscription_status_history]
+```
+**Descrição**: Alterações nos dados do Cliente, mudanças de Status de Transações e mudanças de Status de Assinaturas são registradas em suas respectivas tabelas de histórico/logs para fins de auditoria e rastreabilidade.
+
+
+### 5. Fluxo de Reembolso e Chargeback
+
+
+Este fluxo ilustra o processamento de reembolsos e chargebacks no sistema.
+```
+[transactions] -- (status alterado para) --> [transaction_status_history (status="Reembolsada")]
+                        |
+                        |-- (registra) --> [platform_transaction_payment_history (reembolso)]
+                        |
+                        |-- (ajusta) --> [platform_commission (estorno)]
+```
+**Descrição**: Quando ocorre um reembolso ou chargeback, o status da transação é atualizado, um registro de pagamento negativo é criado, e as comissões são ajustadas (estornadas).
+
+
+Para detalhes aprofundados sobre este fluxo, consulte o documento **[Processamento de Reembolsos e Chargebacks](process_flow_refund_chargeback_001.md)**.
+
+
+Estes fluxos de relacionamento fornecem uma visão dinâmica de como as diferentes partes do banco de dados interagem para suportar os processos de negócio.
+
+
+(Ref: Banco de Dados Unificado, ID core_db_arch_001)
+
+
+## Organização em Domínios Funcionais
+
+
+O banco de dados está estruturado em domínios funcionais bem definidos, cada um com responsabilidades específicas. Esta organização facilita a compreensão do modelo, a manutenção e a evolução futura.
+
+
+### 1. Domínio do Cliente
+
+
+**Tabelas principais**: `customers`, `addresses`, `customer_logs`
+
+
+**Responsabilidade**: Gerenciar todas as informações relacionadas aos clientes, incluindo dados pessoais, endereços e histórico de alterações.
+
+
+**Características-chave**:
+- Identificação única de clientes através do email como chave de unificação.
+- Separação de endereços em tabela própria para maior flexibilidade.
+- Registro detalhado de alterações para auditoria e rastreabilidade.
+
+
+**Documento detalhado**: **[Ecossistema de Clientes](domain_customers_ecosystem_001.md)**
+
+
+### 2. Domínio do Produto
+
+
+**Tabelas principais**: `products`, `plans`, `offers`
+
+
+**Responsabilidade**: Manter o catálogo unificado de produtos, planos de assinatura e ofertas específicas.
+
+
+**Características-chave**:
+- Estrutura hierárquica (produto → plano → oferta).
+- Unificação de produtos entre plataformas.
+- Controle de modelo de precificação e recorrência.
+
+
+**Documento detalhado**: **[Catálogo de Produtos](domain_products_catalog_001.md)**
+
+
+### 3. Domínio de Transação
+
+
+**Tabelas principais**: `transactions`, `transaction_items`, `transaction_status_history`, `transaction_fees`, `transaction_statuses`, `platform_transaction_payment_history`
+
+
+**Responsabilidade**: Registrar todas as transações de vendas, incluindo itens, status, taxas e histórico completo.
+
+
+**Características-chave**:
+- Registro detalhado dos valores monetários (preço bruto, taxas, comissões, valor líquido).
+- Suporte a múltiplos métodos e condições de pagamento.
+- Rastreamento completo do ciclo de vida através do histórico de status.
+
+
+**Documento detalhado**: **[Ciclo de Vida de Transações](domain_transactions_lifecycle_001.md)**
+
+
+### 4. Domínio de Assinatura
+
+
+**Tabelas principais**: `subscriptions`, `subscription_status_history`
+
+
+**Responsabilidade**: Controlar assinaturas recorrentes, renovações, cancelamentos e ciclos de cobrança.
+
+
+**Características-chave**:
+- Monitoramento de datas importantes (início, próxima cobrança, cancelamento, término).
+- Rastreamento do status da assinatura ao longo do tempo.
+- Vinculação com transações recorrentes e planos.
+
+
+**Documento detalhado**: **[Gerenciamento de Assinaturas](domain_subscriptions_management_001.md)**
+
+
+### 5. Domínio de Comissão
+
+
+**Tabelas principais**: `commission_participants`, `platform_commission`, `participant_addresses`
+
+
+**Responsabilidade**: Gerenciar participantes (afiliados, produtores, co-produtores) e suas comissões em transações.
+
+
+**Características-chave**:
+- Registro detalhado dos participantes de comissão.
+- Rastreamento de valores de comissão por transação e participante.
+- Suporte a diferentes tipos de participação (via campo `source`).
+
+
+**Documento detalhado**: **[Sistema de Comissionamento](domain_commission_system_001.md)**
+
+
+### 6. Domínio de Detalhes de Integração com Plataformas
+
+
+**Tabelas principais**: `platform_transaction_payment_history`, `platform_utm_history`, `platform_software_invoice_history`, `platform_sale_offer_history`
+
+
+**Responsabilidade**: Armazenar detalhes específicos das plataformas, incluindo histórico de pagamentos, dados UTM, documentos fiscais e snapshots de ofertas.
+
+
+**Características-chave**:
+- Preservação do contexto original das transações.
+- Suporte a análises de marketing e atribuição.
+- Conformidade fiscal e documentação legal.
+
+
+**Documento detalhado**: **[Detalhes de Integração com Plataformas](domain_platform_integration_details_001.md)**
+
+
+Esta organização em domínios funcionais está alinhada com os princípios de design descritos em **[Princípios Fundamentais de Design do Banco de Dados](core_db_design_001.md)** e facilita tanto a compreensão do modelo quanto a sua evolução para acomodar novas necessidades.
+
+
+(Ref: Banco de Dados Unificado, ID core_db_arch_001)
+
+
+## Abordagem para Unificação de Dados Multi-plataforma
+
+
+Um dos desafios fundamentais que este banco de dados resolve é unificar dados de múltiplas plataformas (Hotmart, Kiwify, e futuras integrações) que possuem terminologias, estruturas e formatos diferentes. Nossa estratégia de unificação aborda este desafio em várias camadas.
+
+
+### 1. Identificação Única com Rastreabilidade
+
+
+**Abordagem**: Cada entidade possui um ID interno sequencial (`id SERIAL PRIMARY KEY`) para referências internas, enquanto preserva os identificadores externos originais como colunas dedicadas.
+
+
+**Implementação**:
+```sql
+-- Exemplo: produtos
+CREATE TABLE IF NOT EXISTS products (
+    id              SERIAL PRIMARY KEY,         -- ID interno para joins
+    product_id      VARCHAR(100) NOT NULL,      -- ID na plataforma original
+    platform_origin VARCHAR(100) NOT NULL,      -- Nome da plataforma
+    -- outros campos
+    CONSTRAINT uq_product_platform UNIQUE (product_id, platform_origin) -- Garante unicidade da combinação
+);
+```
+
+
+**Benefício**: Esta abordagem permite joins eficientes internamente enquanto mantém a capacidade de reconciliar registros com sistemas externos.
+
+
+### 2. Normalização de Vocabulário
+
+
+**Exemplo Concreto: Unificação de Status de Transação**
+
+
+| Plataforma | Status Original | Status Normalizado |
+|------------|-----------------|-------------------|
+| Hotmart    | "APPROVED"      | "Aprovada"        |
+| Kiwify     | "paid"          | "Aprovada"        |
+| Hotmart    | "REFUNDED"      | "Reembolsada"     |
+| Kiwify     | "refunded"      | "Reembolsada"     |
+
+
+**Implementação**:
+```sql
+-- Tabela de status normalizados
+CREATE TABLE IF NOT EXISTS transaction_statuses (
+    id         SERIAL PRIMARY KEY,
+    status     VARCHAR(50) NOT NULL UNIQUE,  -- Nome normalizado
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- Uso na tabela de transações
+CREATE TABLE IF NOT EXISTS transactions (
+    -- outros campos
+    status_id  INTEGER REFERENCES transaction_statuses,
+    -- mais campos
+);
+```
+
+
+**Benefício**: Consultas e análises podem usar um vocabulário consistente, independentemente da plataforma de origem, possibilitando relatórios unificados.
+
+
+Para mais detalhes sobre este processo de normalização, consulte **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md)**.
+
+
+### 3. Preservação de Snapshots Históricos
+
+
+**Abordagem**: Para dados críticos que podem mudar após a transação original (como detalhes de oferta ou termos), mantemos um snapshot no momento da transação.
+
+
+**Implementação**:
+```sql
+-- Exemplo: Snapshot de oferta no momento da venda
+CREATE TABLE IF NOT EXISTS platform_sale_offer_history (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER REFERENCES transactions,
+    code           VARCHAR(100),          -- Código no momento da venda
+    offer_name     VARCHAR(255),          -- Nome no momento da venda
+    description    VARCHAR(500),          -- Descrição no momento da venda
+    -- outros campos
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+
+**Benefício**: Garantimos a precisão histórica mesmo quando a entidade original (ex: oferta) é modificada posteriormente.
+
+
+### 4. Modelo de Dados Extensível
+
+
+**Abordagem**: O esquema foi projetado para acomodar campos específicos de plataforma quando necessário, mas mantém uma estrutura nuclear comum.
+
+
+**Implementação**:
+- Campos universais são colunas diretas nas tabelas principais.
+- Campos específicos de plataforma com valor analítico são incluídos com semântica NULL clara.
+- Dados ultra-específicos são armazenados em colunas `JSONB` ou em tabelas auxiliares flexíveis.
+
+
+**Benefício**: Novas plataformas podem ser integradas com mudanças mínimas no esquema central, conforme detalhado em **[Princípios Fundamentais de Design do Banco de Dados - Seção Evolução e Extensão do Schema](core_db_design_001.md#evolução-e-extensão-do-schema)**.
+
+
+### 5. Pipeline de ETL Padronizado
+
+
+Embora não seja parte do esquema do banco de dados em si, nossa estratégia de integração inclui um pipeline de ETL padronizado que:
+
+
+1. Extrai dados das APIs das plataformas.
+2. Transforma-os para o modelo normalizado.
+3. Mapeia vocabulários inconsistentes para nossos termos padronizados.
+4. Carrega os dados no banco unificado preservando relacionamentos.
+
+
+Este pipeline é projetado com adapters específicos por plataforma que implementam uma interface comum, permitindo adicionar novas plataformas com esforço mínimo. Os detalhes completos deste processo estão documentados em **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md)**.
+
+
+(Ref: Banco de Dados Unificado, ID core_db_arch_001)
+
+
+## Considerações de Performance e Segurança
+
+
+### Performance
+
+
+O banco de dados foi projetado com considerações de performance em mente:
+
+
+1. **Índices Estratégicos**: Índices foram criados para todas as chaves estrangeiras e campos frequentemente usados em filtros e ordenações.
+2. **Preparação para Particionamento**: Tabelas de alto volume como `transactions` e `transaction_status_history` foram projetadas de forma a permitir particionamento futuro.
+3. **Otimização de Tipos de Dados**: Escolha cuidadosa de tipos de dados para balancear precisão e performance.
+4. **Consultas Otimizadas**: Estrutura de tabelas que facilita consultas analíticas comuns sem necessidade de joins excessivos.
+
+
+Para mais detalhes sobre considerações de performance, consulte **[Princípios Fundamentais de Design do Banco de Dados - Seção Considerações de Performance e Escalabilidade](core_db_design_001.md#considerações-de-performance-e-escalabilidade)**.
+
+
+### Segurança
+
+
+O modelo implementa diversas camadas de segurança:
+
+
+1. **Integridade Referencial**: Uso consistente de chaves estrangeiras com constraints apropriadas.
+2. **Auditoria**: Tabelas de logs e histórico para rastrear alterações críticas.
+3. **Proteção de Dados Sensíveis**: Estratégias para mascaramento em ambientes não-produtivos.
+4. **Controle de Acesso**: Design que facilita a implementação de políticas de acesso baseadas em papéis.
+
+
+Para detalhes completos sobre segurança, consulte **[Princípios Fundamentais de Design do Banco de Dados - Seção Diretrizes de Segurança e Governança de Dados](core_db_design_001.md#diretrizes-de-segurança-e-governança-de-dados)**.
+
+
+(Ref: Banco de Dados Unificado, ID core_db_arch_001)
+
+
+## Conclusão
+
+
+O banco de dados `joaocastanheira_bancodedados` representa uma solução robusta para o desafio de unificar dados transacionais e de assinatura provenientes de múltiplas plataformas. Sua arquitetura em domínios funcionais, combinada com uma estratégia eficaz de unificação multiplataforma, fornece uma base sólida para:
+
+
+- **Análises de Negócio Integradas**: Visão completa do cliente e suas transações independentemente da plataforma.
+- **Relatórios Financeiros Precisos**: Consolidação de receita, comissões e taxas em um único local.
+- **Auditoria e Compliance**: Rastreamento detalhado de todas as transações e alterações de status.
+- **Extensibilidade**: Capacidade de integrar novas plataformas com esforço mínimo.
+
+
+A principal inovação deste design é a capacidade de normalizar e unificar dados provenientes de diferentes plataformas, preservando seus detalhes originais quando necessário, mas apresentando uma visão consistente para análise e operações. Isso é conseguido através de uma combinação de:
+
+
+1. Estratégia de identificação dupla (ID interno + ID original)
+2. Normalização de vocabulário através de tabelas de referência
+3. Preservação de snapshots históricos
+4. Modelo de dados flexível e extensível
+5. Pipeline de ETL padronizado
+
+
+Esta arquitetura permite que os usuários analisem seus negócios de forma unificada, mesmo que operem em múltiplas plataformas, e possam tomar decisões baseadas em dados completos e consistentes.
+
+
+Para entender em detalhes como implementar funcionalidades específicas e consultas analíticas, consulte os documentos relacionados sobre fluxos de processo, domínios específicos e exemplos de consultas.
+
+
+(Ref: Banco de Dados Unificado, ID core_db_arch_001)
+```

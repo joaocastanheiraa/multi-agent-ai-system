@@ -1,0 +1,839 @@
+﻿# `Domain_Customers_Ecosystem.md`.
+
+
+Domínio: Ecossistema de Clientes
+
+
+```markdown
+---
+title: "Domínio: Ecossistema de Clientes"
+id: "domain_customers_ecosystem_001"
+doc_type: "domain_functional"
+doc_version: "1.1"
+date_created: "2023-11-20"
+date_updated: "2024-02-15"
+author: "João Castanheira"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Aprovado"
+environment: "Produção"
+related_docs: [
+  "core_db_architecture_001", 
+  "platform_integration_strategy_001", 
+  "process_flow_purchase_lifecycle_001", 
+  "analytics_examples_001"
+]
+tables_in_domain: [
+  "customers", 
+  "addresses", 
+  "customer_logs"
+]
+functional_domain: ["Customer", "CRM", "Identity Management"]
+embedding_guide_concepts: [
+  "cliente unificado", 
+  "identificação de cliente", 
+  "normalização de dados de cliente", 
+  "perfil único de cliente", 
+  "endereço de cliente", 
+  "histórico de alterações", 
+  "auditoria de dados", 
+  "deduplicação de cliente", 
+  "dados cadastrais", 
+  "estratégia de unificação", 
+  "registro de contato", 
+  "rastreabilidade de modificações", 
+  "email como identificador", 
+  "registro de documentos", 
+  "multi-plataforma"
+]
+---
+
+
+# Domínio: Ecossistema de Clientes
+
+
+## Visão Geral do Domínio
+
+
+O Ecossistema de Clientes constitui a estrutura central para identificação, unificação e gestão de todos os dados de clientes no sistema. Sua função principal é estabelecer uma "visão única do cliente" independentemente da plataforma de origem (seja como comprador, assinante ou lead), permitindo rastreamento consistente do histórico de interações e análises comportamentais integradas.
+
+
+Este domínio resolve o desafio crítico de fragmentação de dados de clientes entre múltiplas plataformas, consolidando informações como dados pessoais, endereços, contatos e atividades em um registro único e coerente. O email do cliente serve como identificador universal para esta unificação.
+
+
+O modelo está estruturado em três componentes interconectados:
+
+
+1. **Repositório Central** (`customers`): Armazena informações principais e dados de identificação
+2. **Informações de Localização** (`addresses`): Gerencia dados de endereço de forma normalizada
+3. **Sistema de Auditoria** (`customer_logs`): Documenta todas as alterações para rastreabilidade completa
+
+
+(Ref: Ecossistema de Clientes, ID domain_customers_ecosystem_001)
+
+
+## Estrutura de Dados e Modelo
+
+
+### Diagrama de Relacionamento
+
+
+```mermaid
+erDiagram
+    CUSTOMERS ||--o| ADDRESSES : "possui endereço principal"
+    CUSTOMERS ||--o{ CUSTOMER_LOGS : "registra alterações"
+    CUSTOMERS {
+        serial id PK
+        varchar email UK "Identificador único"
+        varchar name
+        varchar customer_id "ID na plataforma de origem"
+        integer address_id FK
+        timestamp created_at
+        timestamp updated_at
+        varchar phone_local_code "DDD/código de área"
+        varchar phone_number
+        varchar document_type "CPF, CNPJ, etc."
+    }
+    ADDRESSES {
+        serial id PK
+        varchar address "Logradouro"
+        varchar neighborhood "Bairro"
+        varchar country
+        varchar city
+        varchar zip_code
+        varchar complement
+        varchar number
+        varchar ip "IP de registro"
+        timestamp created_at
+        timestamp updated_at
+        varchar state "UF/província"
+    }
+    CUSTOMER_LOGS {
+        serial id PK
+        integer customer_id FK
+        varchar field_name "Campo alterado"
+        text old_value "Valor anterior"
+        text new_value "Novo valor"
+        varchar changed_by "Origem da alteração"
+        timestamp created_at
+    }
+```
+
+
+### Definição das Tabelas
+
+
+#### Tabela: `customers`
+
+
+```sql
+CREATE TABLE IF NOT EXISTS customers (
+    id               SERIAL PRIMARY KEY,
+    email            VARCHAR(255) UNIQUE,                  -- Email do cliente (único)
+    name             VARCHAR(255),                         -- Nome completo
+    customer_id      VARCHAR(255),                         -- ID na plataforma de origem
+    address_id       INTEGER REFERENCES addresses,         -- Endereço principal
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    phone_local_code VARCHAR(10),                          -- DDD ou código de área
+    phone_number     VARCHAR(20),                          -- Número do telefone
+    document_type    VARCHAR(10)                           -- Tipo de documento
+);
+
+
+-- Índices estratégicos para busca e performance
+CREATE INDEX idx_customers_email ON customers (email);
+CREATE INDEX idx_customers_customer_id ON customers (customer_id);
+CREATE INDEX idx_customers_address_id ON customers (address_id);
+CREATE INDEX idx_customers_email_lower ON customers (lower(email::text));
+```
+
+
+#### Tabela: `addresses`
+
+
+```sql
+CREATE TABLE IF NOT EXISTS addresses (
+    id           SERIAL PRIMARY KEY,
+    address      VARCHAR(255),                              -- Logradouro
+    neighborhood VARCHAR(100),                              -- Bairro
+    country      VARCHAR(100),                              -- País
+    city         VARCHAR(100),                              -- Cidade
+    zip_code     VARCHAR(20),                               -- CEP
+    complement   VARCHAR(255),                              -- Complemento
+    number       VARCHAR(20),                               -- Número
+    ip           VARCHAR(45),                               -- Endereço IP de registro
+    created_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    state        VARCHAR(100)                               -- Estado/UF
+);
+
+
+-- Índices para pesquisas geográficas
+CREATE INDEX idx_addresses_zip_code ON addresses (zip_code);
+CREATE INDEX idx_addresses_city ON addresses (city);
+CREATE INDEX idx_addresses_country ON addresses (country);
+CREATE INDEX idx_addresses_state ON addresses (state);
+```
+
+
+#### Tabela: `customer_logs`
+
+
+```sql
+CREATE TABLE IF NOT EXISTS customer_logs (
+    id          SERIAL PRIMARY KEY,
+    customer_id INTEGER NOT NULL REFERENCES customers ON DELETE CASCADE,
+    field_name  VARCHAR(100) NOT NULL,                    -- Nome do campo alterado
+    old_value   TEXT,                                     -- Valor anterior
+    new_value   TEXT,                                     -- Novo valor
+    changed_by  VARCHAR(100) DEFAULT 'SYSTEM',            -- Quem fez a alteração
+    created_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- Índices para auditoria eficiente
+CREATE INDEX idx_customer_logs_customer_id ON customer_logs (customer_id);
+CREATE INDEX idx_customer_logs_created_at ON customer_logs (created_at);
+```
+
+
+(Ref: Ecossistema de Clientes, ID domain_customers_ecosystem_001)
+
+
+## Estratégia de Unificação de Clientes
+
+
+A identificação única e deduplicação de clientes é um aspecto crítico deste domínio, especialmente ao integrar dados de múltiplas plataformas.
+
+
+### Uso do Email como Identificador Principal
+
+
+O email foi escolhido como identificador universal pelas seguintes razões:
+
+
+1. **Universalidade**: Todas as plataformas coletam email como dado obrigatório
+2. **Unicidade**: Os emails tendem a ser únicos por indivíduo (com algumas exceções)
+3. **Estabilidade**: Os usuários raramente mudam seus emails principais
+4. **Padronização**: Formato padronizado independente de região geográfica
+
+
+### Algoritmo de Unificação
+
+
+Quando o sistema recebe dados de cliente de qualquer plataforma (via API ou importação):
+
+
+1. **Normalização do Email**:
+   ```sql
+   -- Converter para minúsculas e remover espaços
+   SELECT lower(trim(email)) as normalized_email FROM imported_data;
+   ```
+
+
+2. **Verificação de Existência**:
+   ```sql
+   -- Busca case-insensitive usando o índice otimizado
+   SELECT id FROM customers WHERE lower(email) = normalized_email;
+   ```
+
+
+3. **Decisão de Criação ou Atualização**:
+   - Se cliente não existir: Criar novo registro
+   - Se cliente existir: Atualizar dados conforme regras de prioridade
+
+
+4. **Tratamento de Dados Conflitantes**:
+   - Campos vazios nunca sobrescrevem dados existentes
+   - Dados de plataformas com maior prioridade podem sobrescrever dados de plataformas de menor prioridade
+   - Todas as alterações são registradas na tabela `customer_logs`
+
+
+### Exemplo de Implementação (Pseudocódigo)
+
+
+```
+FUNCTION unify_customer(email, name, platform_customer_id, phone, ...)
+  normalized_email = lowercase(trim(email))
+  
+  existing_customer = query("SELECT * FROM customers WHERE lower(email) = ?", normalized_email)
+  
+  IF existing_customer EXISTS THEN
+    FOR EACH field IN incoming_data
+      IF should_update_field(existing_customer, field, incoming_value, platform_priority) THEN
+        log_change(existing_customer.id, field, existing_value, incoming_value)
+        update_customer_field(existing_customer.id, field, incoming_value)
+      END IF
+    END FOR
+    
+    RETURN existing_customer.id
+  ELSE
+    new_customer_id = insert_new_customer(normalized_email, name, platform_customer_id, ...)
+    RETURN new_customer_id
+  END IF
+END FUNCTION
+```
+
+
+(Ref: Ecossistema de Clientes, ID domain_customers_ecosystem_001)
+
+
+## Ciclo de Vida de Registro do Cliente
+
+
+O ciclo de vida de um registro de cliente no sistema passa por várias fases:
+
+
+### 1. Criação do Cliente
+
+
+A criação pode ocorrer através de diferentes fluxos:
+
+
+- **Evento de Compra**: Quando uma nova transação é detectada para um email não existente
+- **Assinatura**: Quando um novo assinante é registrado
+- **Importação em Massa**: Durante migração de dados ou sincronização com plataforma externa
+- **Lead Capture**: Quando um prospecto é registrado em funil de marketing
+
+
+Independentemente da origem, o sistema executa a lógica de unificação para evitar duplicação.
+
+
+### 2. Enriquecimento Progressivo de Dados
+
+
+Os registros de clientes frequentemente começam com informações mínimas (apenas email) e são gradualmente enriquecidos:
+
+
+- Após primeira compra: Nome, telefone básico
+- Durante checkout: Endereço de cobrança
+- Em compras subsequentes: Informações adicionais (preferências, dados fiscais)
+
+
+Cada nova interação pode contribuir para completar o perfil do cliente.
+
+
+### 3. Atualização e Manutenção
+
+
+As atualizações são registradas com metadados completos:
+
+
+- **Origem da Alteração**: API, interface administrativa, self-service pelo cliente
+- **Timestamp**: Momento exato da modificação
+- **Valores Antigos e Novos**: Preservados para auditoria e possível reversão
+- **Razão da Alteração** (quando disponível): Por que o dado foi modificado
+
+
+### 4. Eventual Inativação ou Remoção
+
+
+Para conformidade com LGPD/GDPR e outras regulamentações:
+
+
+- Clientes podem solicitar anonimização dos dados (direito ao esquecimento)
+- Registros inativos por longos períodos podem ser anonimizados por política interna
+- A infraestrutura suporta pseudonimização que preserva dados analíticos enquanto protege a privacidade
+
+
+(Ref: Ecossistema de Clientes, ID domain_customers_ecosystem_001)
+
+
+## Sistema de Auditoria e Rastreabilidade
+
+
+### Funcionamento do Sistema de Logs
+
+
+O sistema de logs na tabela `customer_logs` cria um registro detalhado de todas as alterações, permitindo:
+
+
+1. **Rastreamento Completo**: Cada modificação em dados de cliente é documentada
+2. **Responsabilização**: Identificação de quem realizou cada alteração
+3. **Recuperação**: Capacidade de reverter alterações indesejadas
+4. **Conformidade**: Atendimento a requisitos regulatórios de auditoria
+
+
+### Implementação Técnica
+
+
+O registro de alterações é implementado através de:
+
+
+1. **Triggers de Banco de Dados**: Capturam automaticamente alterações
+   ```sql
+   CREATE OR REPLACE FUNCTION log_customer_changes()
+   RETURNS TRIGGER AS $$
+   BEGIN
+       IF OLD.name IS DISTINCT FROM NEW.name THEN
+           INSERT INTO customer_logs (customer_id, field_name, old_value, new_value, changed_by)
+           VALUES (NEW.id, 'name', OLD.name, NEW.name, CURRENT_USER);
+       END IF;
+       
+       -- Repetir para outros campos
+       
+       RETURN NEW;
+   END;
+   $$ LANGUAGE plpgsql;
+   
+   CREATE TRIGGER customer_change_logger
+   AFTER UPDATE ON customers
+   FOR EACH ROW
+   EXECUTE FUNCTION log_customer_changes();
+   ```
+
+
+2. **Lógica na Camada de Aplicação**: Para casos mais complexos ou quando a razão da alteração precisa ser capturada
+   ```python
+   def update_customer(customer_id, field_name, new_value, changed_by, reason=None):
+       # Buscar valor atual
+       current_value = db.query(f"SELECT {field_name} FROM customers WHERE id = %s", customer_id)
+       
+       # Registrar alteração
+       db.execute(
+           "INSERT INTO customer_logs (customer_id, field_name, old_value, new_value, changed_by) VALUES (%s, %s, %s, %s, %s)",
+           customer_id, field_name, current_value, new_value, changed_by
+       )
+       
+       # Atualizar o valor
+       db.execute(f"UPDATE customers SET {field_name} = %s WHERE id = %s", new_value, customer_id)
+   ```
+
+
+### Análise de Alterações
+
+
+O histórico de alterações permite consultas analíticas como:
+
+
+```sql
+-- Campos mais frequentemente alterados (pode indicar problemas na coleta inicial)
+SELECT 
+    field_name, 
+    COUNT(*) as change_count
+FROM 
+    customer_logs
+GROUP BY 
+    field_name
+ORDER BY 
+    change_count DESC;
+
+
+-- Alterações por origem (identifica fontes de dados com maior atividade)
+SELECT 
+    changed_by, 
+    COUNT(*) as change_count
+FROM 
+    customer_logs
+GROUP BY 
+    changed_by
+ORDER BY 
+    change_count DESC;
+
+
+-- Alterações por período (identifica picos de atividade)
+SELECT 
+    date_trunc('day', created_at) as change_date,
+    COUNT(*) as daily_changes
+FROM 
+    customer_logs
+GROUP BY 
+    change_date
+ORDER BY 
+    change_date DESC;
+```
+
+
+(Ref: Ecossistema de Clientes, ID domain_customers_ecosystem_001)
+
+
+## Considerações de Privacidade e Segurança
+
+
+Como repositório central de dados pessoais, este domínio requer atenção especial a questões de privacidade e segurança:
+
+
+### Conformidade com Regulamentos de Proteção de Dados
+
+
+O modelo foi projetado considerando requisitos da LGPD (Brasil) e GDPR (Europa):
+
+
+1. **Minimização de Dados**: Coleta apenas dados necessários para operações legítimas
+2. **Propósito Específico**: Campos têm finalidades claramente definidas
+3. **Rastreabilidade**: Histórico completo de modificações para demonstrar conformidade
+4. **Direitos do Titular**: Estrutura facilita extração, correção e anonimização de dados
+
+
+### Implementação de Medidas Técnicas
+
+
+Para proteger estes dados sensíveis, recomenda-se:
+
+
+| Medida de Segurança | Implementação |
+|---------------------|---------------|
+| **Controle de Acesso** | Permissões granulares por função de usuário |
+| **Criptografia** | Dados sensíveis criptografados em repouso |
+| **Mascaramento** | Exibição limitada de dados completos na interface |
+| **Auditoria** | Logs de todas as consultas e alterações |
+| **Retenção** | Políticas automáticas de retenção e expurgo |
+| **Backup Seguro** | Backups criptografados e com controle de acesso |
+
+
+### Arquitetura de Pseudonimização
+
+
+Para casos de exclusão de dados ("direito ao esquecimento"):
+
+
+```sql
+-- Pseudonimização de cliente (exemplo de implementação)
+UPDATE customers
+SET 
+    email = CONCAT('deleted_', MD5(email), '@anonymous.com'),
+    name = 'Cliente Anonimizado',
+    phone_local_code = NULL,
+    phone_number = NULL
+WHERE 
+    id = 123;
+
+
+-- Registro da pseudonimização
+INSERT INTO customer_logs (customer_id, field_name, old_value, new_value, changed_by)
+VALUES (123, 'pseudonymization', 'Complete personal data', 'Anonymized data', 'GDPR Request');
+```
+
+
+(Ref: Ecossistema de Clientes, ID domain_customers_ecosystem_001)
+
+
+## Integração com Outros Domínios
+
+
+O Ecossistema de Clientes é um domínio fundamental que se conecta com praticamente todos os outros componentes do sistema:
+
+
+### Principais Integrações
+
+
+| Domínio | Relação | Tabelas Relacionadas |
+|---------|---------|----------------------|
+| **Transações** | Cada transação pertence a um cliente | `transactions.customer_id → customers.id` |
+| **Assinaturas** | Assinaturas pertencem a um cliente | `subscriptions.customer_id → customers.id` |
+| **Produtos & Ofertas** | Clientes compram produtos via ofertas | Relacionamento indireto via transações |
+| **Comissionamento** | Análise de clientes trazidos por parceiros | Análise via transações e comissões |
+| **Analytics** | Segmentação e análise de comportamento | Fonte primária para relatórios de cliente |
+
+
+### Consultas de Integração Comuns
+
+
+#### Histórico de Compras por Cliente
+
+
+```sql
+-- Todas as transações de um cliente específico
+SELECT 
+    t.transaction_id,
+    t.order_date,
+    p.name AS product_name,
+    t.offer_price,
+    ts.status
+FROM 
+    transactions t
+JOIN 
+    transaction_items ti ON t.id = ti.transaction_id
+JOIN 
+    products p ON ti.product_id = p.id
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    t.customer_id = (SELECT id FROM customers WHERE email = 'cliente@exemplo.com')
+ORDER BY 
+    t.order_date DESC;
+```
+
+
+#### Valor Total de Cliente (LTV)
+
+
+```sql
+-- Cálculo de Lifetime Value por cliente
+SELECT 
+    c.id,
+    c.email,
+    c.name,
+    COUNT(t.id) AS total_purchases,
+    SUM(t.offer_price) AS total_spent,
+    MIN(t.order_date) AS first_purchase_date,
+    MAX(t.order_date) AS last_purchase_date
+FROM 
+    customers c
+LEFT JOIN 
+    transactions t ON c.id = t.customer_id
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    ts.status = 'Aprovada'  -- Considerar apenas transações aprovadas
+GROUP BY 
+    c.id, c.email, c.name
+ORDER BY 
+    total_spent DESC;
+```
+
+
+#### Distribuição Geográfica de Clientes
+
+
+```sql
+-- Análise de distribuição geográfica dos clientes
+SELECT 
+    a.country,
+    a.state,
+    COUNT(c.id) AS customer_count,
+    SUM(
+        CASE WHEN t.id IS NOT NULL THEN 1 ELSE 0 END
+    ) AS customers_with_purchases
+FROM 
+    customers c
+LEFT JOIN 
+    addresses a ON c.address_id = a.id
+LEFT JOIN 
+    transactions t ON c.id = t.customer_id
+GROUP BY 
+    a.country, a.state
+ORDER BY 
+    customer_count DESC;
+```
+
+
+(Ref: Ecossistema de Clientes, ID domain_customers_ecosystem_001)
+
+
+## Desafios Comuns e Soluções
+
+
+### 1. Deduplicação de Clientes
+
+
+**Desafio**: Identificar e mesclar registros duplicados quando clientes usam emails diferentes ou têm informações ligeiramente diferentes.
+
+
+**Solução Implementada**:
+- Email como identificador primário
+- Índices otimizados para busca case-insensitive
+- Validação na camada de aplicação antes da inserção
+
+
+**Solução Avançada para Consideração Futura**:
+- Algoritmos de correspondência fuzzy para detectar prováveis duplicações
+- Processo de mesclagem supervisionada para casos ambíguos
+- Análise baseada em múltiplos campos (nome + telefone + CEP)
+
+
+### 2. Dados Incompletos
+
+
+**Desafio**: Muitos registros de clientes começam com dados mínimos e permanecem incompletos.
+
+
+**Solução**:
+- Estrutura que permite preenchimento progressivo
+- Processos de enriquecimento durante interações subsequentes
+- Relatórios de "saúde de dados" para identificar perfis incompletos prioritários
+
+
+### 3. Controle de Acesso Granular
+
+
+**Desafio**: Diferentes funções precisam de diferentes níveis de acesso aos dados de clientes.
+
+
+**Solução**:
+- Mascaramento de dados sensíveis para funções com acesso limitado
+- Logs detalhados de acesso para auditoria
+- Permissões por campo para dados altamente sensíveis
+- Mecanismo de aprovação para operações de exportação em massa
+
+
+(Ref: Ecossistema de Clientes, ID domain_customers_ecosystem_001)
+
+
+## Consultas e Análises Estratégicas
+
+
+### Consultas para Gestão de Clientes
+
+
+#### Identificação de Clientes de Alto Valor
+
+
+```sql
+-- Top 100 clientes por valor total de compras
+SELECT 
+    c.id,
+    c.email,
+    c.name,
+    SUM(t.offer_price) AS total_spent,
+    COUNT(DISTINCT t.id) AS purchase_count,
+    MAX(t.order_date) AS last_purchase_date,
+    CURRENT_DATE - MAX(t.order_date)::date AS days_since_last_purchase
+FROM 
+    customers c
+JOIN 
+    transactions t ON c.id = t.customer_id
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    ts.status = 'Aprovada'
+GROUP BY 
+    c.id, c.email, c.name
+ORDER BY 
+    total_spent DESC
+LIMIT 100;
+```
+
+
+#### Segmentação por Engajamento
+
+
+```sql
+-- Segmentação RFM (Recency, Frequency, Monetary)
+WITH customer_metrics AS (
+    SELECT 
+        c.id,
+        c.email,
+        c.name,
+        CURRENT_DATE - MAX(t.order_date)::date AS recency_days,
+        COUNT(DISTINCT t.id) AS frequency,
+        SUM(t.offer_price) AS monetary
+    FROM 
+        customers c
+    JOIN 
+        transactions t ON c.id = t.customer_id
+    JOIN 
+        transaction_statuses ts ON t.status_id = ts.id
+    WHERE 
+        ts.status = 'Aprovada'
+    GROUP BY 
+        c.id, c.email, c.name
+),
+rfm_scores AS (
+    SELECT 
+        id, email, name,
+        NTILE(5) OVER (ORDER BY recency_days DESC) AS r_score,
+        NTILE(5) OVER (ORDER BY frequency) AS f_score,
+        NTILE(5) OVER (ORDER BY monetary) AS m_score
+    FROM 
+        customer_metrics
+)
+SELECT 
+    id, email, name,
+    r_score, f_score, m_score,
+    r_score::text || f_score::text || m_score::text AS rfm_segment
+FROM 
+    rfm_scores
+ORDER BY 
+    (r_score + f_score + m_score) DESC;
+```
+
+
+#### Análise de Inatividade
+
+
+```sql
+-- Clientes inativos (sem compras nos últimos 180 dias)
+SELECT 
+    c.id,
+    c.email,
+    c.name,
+    MAX(t.order_date) AS last_purchase_date,
+    CURRENT_DATE - MAX(t.order_date)::date AS days_inactive,
+    COUNT(t.id) AS lifetime_purchases,
+    SUM(t.offer_price) AS lifetime_value
+FROM 
+    customers c
+LEFT JOIN 
+    transactions t ON c.id = t.customer_id
+LEFT JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    t.id IS NOT NULL
+    AND ts.status = 'Aprovada'
+GROUP BY 
+    c.id, c.email, c.name
+HAVING 
+    CURRENT_DATE - MAX(t.order_date)::date > 180
+ORDER BY 
+    days_inactive ASC;
+```
+
+
+(Ref: Ecossistema de Clientes, ID domain_customers_ecosystem_001)
+
+
+## Melhores Práticas para Gestão de Dados de Cliente
+
+
+### 1. Qualidade e Integridade de Dados
+
+
+- **Validação Consistente**: Implementar validação rigorosa de formato e conteúdo (email, telefone, CEP)
+- **Normalização Padronizada**: Aplicar normas consistentes para formatação de dados
+- **Enriquecimento Progressivo**: Priorizar completude de dados para clientes ativos e de alto valor
+
+
+### 2. Extensibilidade do Modelo
+
+
+O design atual suporta expansões comuns:
+
+
+- **Campos Customizados**: Considerar uma tabela `customer_attributes` para campos dinâmicos
+- **Múltiplos Endereços**: Adaptar para modelo 1:N entre cliente e endereços (envio, cobrança, etc.)
+- **Consentimentos LGPD**: Adicionar tabela dedicada ao rastreamento de consentimentos específicos
+
+
+### 3. Monitoramento e Manutenção
+
+
+- **Auditorias Periódicas**: Verificar regularmente a qualidade e completude dos dados
+- **Limpeza Proativa**: Identificar e corrigir inconsistências antes que afetem operações
+- **Métricas de Qualidade**: Estabelecer KPIs para saúde de dados (% de registros completos, taxa de atualização)
+
+
+### 4. Considerações Sobre Internacionalização
+
+
+Para operações globais, considerar:
+
+
+- **Formatos de Endereço**: Diferentes países têm estruturas de endereço distintas
+- **Formatos de Telefone**: Suportar diferentes formatos de número e códigos de país
+- **Tipos de Documento**: Adaptar para documentos específicos de cada país
+- **Considerações Legais**: Políticas de privacidade específicas por região
+
+
+(Ref: Ecossistema de Clientes, ID domain_customers_ecosystem_001)
+
+
+## Conclusão
+
+
+O Ecossistema de Clientes representa uma peça fundamental da arquitetura de dados, servindo como alicerce para praticamente todas as operações de negócio. Ao estabelecer uma visão única e consistente de cada cliente, independentemente da plataforma de origem, o sistema possibilita:
+
+
+1. **Experiência Unificada**: Visão completa do histórico e interações do cliente
+2. **Análises Avançadas**: Base sólida para segmentação, LTV e outras métricas de negócio
+3. **Conformidade Regulatória**: Estrutura que facilita atender requisitos de LGPD/GDPR
+4. **Operações Eficientes**: Eliminação de duplicidades e inconsistências de dados
+
+
+A implementação descrita neste documento equilibra a necessidade de uma estrutura robusta com a flexibilidade necessária para evolução contínua, garantindo que o sistema possa se adaptar a novos requisitos de negócio e regulatórios ao longo do tempo.
+
+
+(Ref: Ecossistema de Clientes, ID domain_customers_ecosystem_001)
+```

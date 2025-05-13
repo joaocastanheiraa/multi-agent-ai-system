@@ -1,0 +1,1549 @@
+﻿# `Domain_Commission_System.md`, que explica o sistema de comissionamento para afiliados, produtores e co-produtores.
+
+
+Domínio: Sistema de Comissionamento
+
+
+```markdown
+---
+title: "Domínio: Sistema de Comissionamento"
+id: "domain_commission_system_001"
+doc_type: "domain_functional"
+doc_version: "1.1"
+date_created: "2025-04-23"
+date_updated: "2025-04-235"
+author: "João Castanheira"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Aprovado"
+environment: "Produção"
+related_docs: [
+  "core_db_architecture_001", 
+  "platform_integration_strategy_001", 
+  "domain_transactions_lifecycle_001", 
+  "domain_customers_ecosystem_001", 
+  "domain_products_catalog_001", 
+  "process_flow_commission_system_001"
+]
+tables_in_domain: [
+  "commission_participants", 
+  "platform_commission", 
+  "participant_addresses", 
+  "transactions", 
+  "platform_utm_history"
+]
+functional_domain: ["Revenue Share", "Affiliate Marketing", "Partner Management"]
+embedding_guide_concepts: [
+  "sistema comissionamento", 
+  "afiliados", 
+  "produtores", 
+  "co-produtores", 
+  "comissão recorrente", 
+  "atribuição de venda", 
+  "tracking de afiliado", 
+  "divisão de receita", 
+  "participante de comissão", 
+  "cálculo de comissão", 
+  "fonte de comissão", 
+  "tracking_source", 
+  "tracking_sck", 
+  "pagamento de comissão", 
+  "modelo de atribuição", 
+  "first click", 
+  "last click", 
+  "marketing multinível", 
+  "fraude em comissão"
+]
+---
+
+
+# Domínio: Sistema de Comissionamento
+
+
+## Visão Geral do Sistema
+
+
+O Sistema de Comissionamento gerencia a distribuição de receita entre os diversos participantes de um ecossistema de vendas colaborativas. Ele rastreia, calcula e registra os valores devidos a cada contribuinte no processo de venda, desde produtores originais até afiliados promocionais.
+
+
+Este domínio é essencial para operações que envolvem:
+
+
+- **Programas de afiliados** onde promotores externos recebem percentuais das vendas que geram
+- **Modelos de co-produção** onde múltiplos criadores compartilham receitas de um produto
+- **Estruturas multinível** onde existem cadeias de referência entre participantes
+- **Divisões de receita** baseadas em diferentes contribuições para o processo de venda
+
+
+O sistema captura precisamente quem contribuiu para cada transação, qual sua função no processo (afiliado, produtor, co-produtor), quanto deve receber e garante rastreabilidade completa dessas atribuições ao longo do tempo.
+
+
+```mermaid
+flowchart TD
+    A[Transação Aprovada] --> B{Tem Tracking\nde Afiliado?}
+    B -->|Sim| C[Identificar Afiliado]
+    B -->|Não| D[Apenas Produtor Recebe]
+    C --> E[Calcular Comissões]
+    E --> F[Registrar Distribuição\nna platform_commission]
+    D --> F
+    F --> G[Atualizar Saldos\ndos Participantes]
+```
+
+
+(Ref: Sistema de Comissionamento, ID domain_commission_system_001)
+
+
+## Estrutura de Dados do Sistema de Comissionamento
+
+
+### 1. Participantes e Seus Papéis
+
+
+A tabela `commission_participants` é o cadastro central de todas as entidades que podem receber comissões:
+
+
+```sql
+CREATE TABLE IF NOT EXISTS commission_participants (
+    id               SERIAL PRIMARY KEY,
+    platform_id      VARCHAR(255) NOT NULL,                -- ID na plataforma
+    platform_origin  VARCHAR(100) NOT NULL,                -- Nome da plataforma
+    email            VARCHAR(255),                         -- Email do participante
+    name             VARCHAR(255),                         -- Nome completo
+    trader_name      VARCHAR(255),                         -- Nome comercial
+    locale           VARCHAR(20),                          -- Localização/idioma
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    phone_local_code VARCHAR(10),                          -- DDD ou código de área
+    phone_number     VARCHAR(20),                          -- Número do telefone
+    document_type    VARCHAR(10),                          -- Tipo de documento
+    CONSTRAINT uq_participant_platform UNIQUE (platform_id, platform_origin)
+);
+```
+
+
+#### Tipos de Participantes no Ecossistema:
+
+
+| Tipo | Descrição | Identificação | Comissionamento Típico |
+|------|-----------|---------------|------------------------|
+| **Produtor** | Criador original do produto | Proprietário do produto no catálogo | Recebe valor líquido (após taxas e comissões de parceiros) |
+| **Afiliado** | Promotor externo que divulga produtos | Através de códigos de tracking (`tracking_source`) | Percentual fixo ou variável por venda referenciada |
+| **Co-Produtor** | Contribuidor na criação do produto | Vínculo direto com o produto no sistema | Percentual de todas as vendas, independente do canal |
+| **Sub-Afiliado** | Afiliado recrutado por outro afiliado | Através de hierarquia de afiliação | Gera comissão para si e para seu recrutador |
+
+
+#### Dados de Contato e Fiscais:
+
+
+Para processar pagamentos e cumprir requisitos fiscais, o sistema armazena dados complementares:
+
+
+```sql
+CREATE TABLE IF NOT EXISTS participant_addresses (
+    id             SERIAL PRIMARY KEY,
+    participant_id INTEGER NOT NULL REFERENCES commission_participants ON DELETE CASCADE,
+    address        VARCHAR(255),                          -- Logradouro
+    neighborhood   VARCHAR(100),                          -- Bairro
+    country        VARCHAR(100),                          -- País
+    city           VARCHAR(100),                          -- Cidade
+    zip_code       VARCHAR(20),                           -- CEP
+    complement     VARCHAR(255),                          -- Complemento
+    number         VARCHAR(20),                           -- Número
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    state          VARCHAR(100)                           -- Estado/UF
+);
+```
+
+
+Esta separação em uma tabela específica de endereços permite:
+- Atualização de dados de contato sem afetar o registro principal
+- Suporte a múltiplos endereços no futuro (residencial/comercial)
+- Estrutura consistente com outras entidades do sistema que possuem endereços
+
+
+### 2. Registros de Comissão
+
+
+A tabela `platform_commission` registra cada atribuição individual de comissão:
+
+
+```sql
+CREATE TABLE IF NOT EXISTS platform_commission (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    participant_id INTEGER NOT NULL REFERENCES commission_participants,
+    amount         NUMERIC(15, 4) NOT NULL,                -- Valor da comissão
+    currency_code  VARCHAR(3) NOT NULL,                    -- Código da moeda
+    source         VARCHAR(100),                           -- Origem da comissão
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+
+#### O Campo `source` como Identificador de Papel:
+
+
+O campo `source` é crucial para entender o **papel** que o participante desempenhou na transação:
+
+
+| Valor de `source` | Significado | Contexto de Uso |
+|-------------------|-------------|-----------------|
+| `PRODUCER` | Produtor principal | Recebimento do valor líquido final |
+| `AFFILIATE` | Afiliado direto | Comissão por venda gerada diretamente |
+| `COPRODUCER` | Co-produtor/parceiro | Participação na receita como co-criador |
+| `SECOND_TIER` | Afiliado de segundo nível | Em estruturas de marketing multinível |
+| `TEAM_LEADER` | Líder de equipe | Em programas com estrutura de equipes de afiliados |
+
+
+Exemplo de como múltiplos registros são criados para uma única transação:
+
+
+```sql
+-- Para uma transação com ID 123 envolvendo produtor, afiliado e co-produtor
+INSERT INTO platform_commission (transaction_id, participant_id, amount, currency_code, source)
+VALUES 
+  (123, 456, 450.00, 'BRL', 'PRODUCER'),     -- Produtor recebe R$450,00
+  (123, 789, 270.00, 'BRL', 'AFFILIATE'),    -- Afiliado recebe R$270,00
+  (123, 101, 180.00, 'BRL', 'COPRODUCER');   -- Co-produtor recebe R$180,00
+```
+
+
+### 3. Rastreamento de Origem de Venda
+
+
+O rastreamento de quem gerou uma venda é implementado através de campos específicos na tabela `transactions`:
+
+
+```sql
+-- Campos relevantes para comissionamento na tabela transactions
+transaction_id            VARCHAR(100) NOT NULL,           -- ID na plataforma
+...
+partner_commission_amount NUMERIC(15, 4) DEFAULT 0,        -- Total comissões
+tracking_source           VARCHAR(100),                    -- ID do afiliado
+tracking_sck              VARCHAR(100),                    -- Código secundário
+...
+```
+
+
+#### Como Funciona o Rastreamento:
+
+
+1. **Geração do Link**: Um afiliado recebe um link com parâmetros de rastreamento
+   ```
+   https://produto.com/?src=afiliado123&sck=instagram
+   ```
+
+
+2. **Captura dos Parâmetros**: Quando um cliente clica no link, os parâmetros são capturados
+   ```javascript
+   // Exemplo simplificado de captura em JavaScript
+   const urlParams = new URLSearchParams(window.location.search);
+   const affiliateCode = urlParams.get('src');
+   const trackingSource = urlParams.get('sck');
+   
+   // Armazenar em cookies ou localStorage para persistir durante a navegação
+   localStorage.setItem('tracking_src', affiliateCode);
+   localStorage.setItem('tracking_sck', trackingSource);
+   ```
+
+
+3. **Armazenamento na Transação**: No momento da compra, os parâmetros são associados à transação
+   ```sql
+   INSERT INTO transactions (
+       /* outros campos */
+       tracking_source,
+       tracking_sck
+   ) VALUES (
+       /* outros valores */
+       'afiliado123',
+       'instagram'
+   );
+   ```
+
+
+4. **Atribuição de Comissão**: O sistema usa esses dados para calcular e registrar comissões
+   ```sql
+   -- Pseudocódigo de atribuição
+   SELECT id FROM commission_participants
+   WHERE platform_id = 'afiliado123'
+   AND platform_origin = 'Hotmart';
+   
+   -- Registrar comissão com o ID encontrado
+   ```
+
+
+Para análises mais detalhadas de marketing, parâmetros UTM adicionais são armazenados na tabela `platform_utm_history`:
+
+
+```sql
+CREATE TABLE IF NOT EXISTS platform_utm_history (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    utm_source     VARCHAR(255),                           -- Origem
+    utm_medium     VARCHAR(255),                           -- Meio
+    utm_campaign   VARCHAR(255),                           -- Campanha
+    utm_term       VARCHAR(255),                           -- Termo
+    utm_content    VARCHAR(255),                           -- Conteúdo
+    capture_date   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+
+(Ref: Sistema de Comissionamento, ID domain_commission_system_001)
+
+
+## Fluxo Financeiro e Cálculo de Comissões
+
+
+### Decomposição do Valor da Venda
+
+
+Cada transação passa por um processo de divisão que determina quanto cada parte receberá:
+
+
+```mermaid
+graph TD
+    A[Valor da Oferta\noffer_price] --> B[Taxa da Plataforma\nplatform_fee_amount]
+    A --> C[Valor Distribuível\ndistributable_amount]
+    C --> D[Comissões de Parceiros\npartner_commission_amount]
+    C --> E[Valor Líquido do Produtor\nproducer_net_amount]
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style B fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#bfb,stroke:#333,stroke-width:2px
+    style D fill:#fbb,stroke:#333,stroke-width:2px
+    style E fill:#bff,stroke:#333,stroke-width:2px
+```
+
+
+#### 1. Campos-Chave na Tabela `transactions`:
+
+
+```sql
+offer_price               NUMERIC(15, 4) NOT NULL,             -- Preço da oferta
+platform_fee_amount       NUMERIC(15, 4) DEFAULT 0,            -- Taxas da plataforma
+distributable_amount      NUMERIC(15, 4),                      -- Valor distribuível
+partner_commission_amount NUMERIC(15, 4) DEFAULT 0,            -- Comissões
+producer_net_amount       NUMERIC(15, 4),                      -- Valor líquido produtor
+```
+
+
+#### 2. Processo de Cálculo:
+
+
+```sql
+-- Exemplo de cálculo em uma transação típica
+-- 1. Define-se o valor total da venda
+SET @offer_price = 100.00;
+
+
+-- 2. Calcula-se a taxa da plataforma (ex: 10%)
+SET @platform_fee_amount = @offer_price * 0.10;
+
+
+-- 3. Calcula-se o valor distribuível
+SET @distributable_amount = @offer_price - @platform_fee_amount;
+
+
+-- 4. Calcula-se a comissão do afiliado (ex: 30% do distribuível)
+SET @affiliate_commission = @distributable_amount * 0.30;
+
+
+-- 5. Calcula-se a comissão do co-produtor (ex: 20% do distribuível)
+SET @coproducer_commission = @distributable_amount * 0.20;
+
+
+-- 6. Calcula-se o total de comissões
+SET @partner_commission_amount = @affiliate_commission + @coproducer_commission;
+
+
+-- 7. Calcula-se o valor líquido do produtor
+SET @producer_net_amount = @distributable_amount - @partner_commission_amount;
+
+
+-- 8. Verificação: o valor distribuível se divide entre parceiros e produtor
+-- @distributable_amount = @partner_commission_amount + @producer_net_amount
+```
+
+
+### Exemplos de Distribuição em Diferentes Modelos
+
+
+#### Exemplo 1: Venda Direta (Sem Afiliado)
+
+
+```
+Valor da Oferta: R$100,00
+- Taxa da Plataforma (10%): R$10,00
+= Valor Distribuível: R$90,00
+  - Comissões de Parceiros (0%): R$0,00
+  = Valor Líquido do Produtor: R$90,00
+```
+
+
+#### Exemplo 2: Venda por Afiliado
+
+
+```
+Valor da Oferta: R$100,00
+- Taxa da Plataforma (10%): R$10,00
+= Valor Distribuível: R$90,00
+  - Comissão do Afiliado (30% do distribuível): R$27,00
+  = Valor Líquido do Produtor: R$63,00
+```
+
+
+#### Exemplo 3: Co-Produção com Afiliado
+
+
+```
+Valor da Oferta: R$100,00
+- Taxa da Plataforma (10%): R$10,00
+= Valor Distribuível: R$90,00
+  - Comissão do Afiliado (30% do distribuível): R$27,00
+  - Comissão do Co-produtor (20% do distribuível): R$18,00
+  = Valor Líquido do Produtor Principal: R$45,00
+```
+
+
+#### Exemplo 4: Marketing Multinível (2 Níveis)
+
+
+```
+Valor da Oferta: R$100,00
+- Taxa da Plataforma (10%): R$10,00
+= Valor Distribuível: R$90,00
+  - Comissão do Afiliado Direto (25% do distribuível): R$22,50
+  - Comissão do Afiliado de 2º Nível (5% do distribuível): R$4,50
+  = Valor Líquido do Produtor: R$63,00
+```
+
+
+### Cálculo de Comissões em Assinaturas Recorrentes
+
+
+Em modelos de negócio baseados em assinaturas, as comissões são calculadas a cada ciclo de cobrança:
+
+
+```sql
+-- Consulta para verificar comissões recorrentes de um afiliado específico
+SELECT 
+    t.transaction_id,
+    t.order_date,
+    s.subscription_id,
+    t.recurrence_number,
+    pc.amount AS commission_amount
+FROM 
+    transactions t
+JOIN 
+    subscriptions s ON t.subscription_id = s.id
+JOIN 
+    platform_commission pc ON t.id = pc.transaction_id
+JOIN 
+    commission_participants cp ON pc.participant_id = cp.id
+WHERE 
+    cp.email = 'afiliado@exemplo.com'
+    AND t.is_subscription = true
+    AND pc.source = 'AFFILIATE'
+ORDER BY 
+    s.subscription_id, t.recurrence_number;
+```
+
+
+**Características das Comissões Recorrentes:**
+
+
+- O afiliado que gerou a venda inicial continua recebendo comissões nas renovações
+- As comissões são baseadas no valor de cada renovação (que pode variar)
+- A atribuição original é preservada durante todo o ciclo de vida da assinatura
+- Proporciona receita previsível e de longo prazo para afiliados
+
+
+(Ref: Sistema de Comissionamento, ID domain_commission_system_001)
+
+
+## Modelos de Atribuição e Rastreamento
+
+
+### Principais Modelos de Atribuição
+
+
+O sistema suporta diferentes modelos para determinar qual afiliado recebe crédito por uma venda:
+
+
+#### 1. Modelo Last Click (Último Clique)
+
+
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant AfiliadoA as Afiliado A
+    participant AfiliadoB as Afiliado B
+    participant Sistema
+    
+    Cliente->>AfiliadoA: Clica no link do Afiliado A
+    Sistema->>Sistema: Armazena tracking_source=A (cookie)
+    Note over Sistema: Validade: 30 dias
+    
+    Cliente->>AfiliadoB: Clica no link do Afiliado B
+    Sistema->>Sistema: Substitui tracking_source=B
+    Note over Sistema: Último clique sobrescreve
+    
+    Cliente->>Sistema: Realiza compra
+    Sistema->>Sistema: Verifica tracking_source=B
+    Sistema->>AfiliadoB: Atribui 100% da comissão
+```
+
+
+Este é o modelo mais comum nas plataformas, onde:
+- Apenas o último afiliado cujo link foi clicado recebe a comissão
+- Os cookies anteriores são sobrescritos por cliques mais recentes
+- Favorece afiliados que efetivamente convertem o cliente na fase final
+
+
+```sql
+-- Pseudocódigo de implementação do Last Click
+-- No momento da compra, usar simplesmente o valor atual dos cookies
+INSERT INTO transactions (
+    /* outros campos */
+    tracking_source,
+    tracking_sck
+) VALUES (
+    /* outros valores */
+    COOKIE['tracking_src'],  -- Último valor armazenado
+    COOKIE['tracking_sck']   -- Último valor armazenado
+);
+```
+
+
+#### 2. Modelo First Click (Primeiro Clique)
+
+
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant AfiliadoA as Afiliado A
+    participant AfiliadoB as Afiliado B
+    participant Sistema
+    
+    Cliente->>AfiliadoA: Clica no link do Afiliado A
+    Sistema->>Sistema: Armazena tracking_source=A (cookie)
+    Note over Sistema: Validade: 30 dias
+    
+    Cliente->>AfiliadoB: Clica no link do Afiliado B
+    Sistema->>Sistema: Mantém tracking_source=A
+    Note over Sistema: Primeiro clique prevalece
+    
+    Cliente->>Sistema: Realiza compra
+    Sistema->>Sistema: Verifica tracking_source=A
+    Sistema->>AfiliadoA: Atribui 100% da comissão
+```
+
+
+Menos comum, mas valoriza quem iniciou o processo:
+- O primeiro afiliado cujo link foi clicado recebe a comissão
+- Cliques subsequentes não substituem o rastreamento original
+- Favorece afiliados de "topo de funil" que geram conscientização inicial
+
+
+```sql
+-- Pseudocódigo de implementação do First Click
+-- No primeiro clique, garantir que não sobrescreva se já existir
+IF (COOKIE['tracking_src'] IS NULL) THEN
+    SET COOKIE['tracking_src'] = 'afiliado123';
+    SET COOKIE['tracking_sck'] = 'campanha';
+END IF;
+```
+
+
+#### 3. Modelo de Comissão Dividida (Split Commission)
+
+
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant AfiliadoA as Afiliado A (Awareness)
+    participant AfiliadoB as Afiliado B (Conversion)
+    participant Sistema
+    
+    Cliente->>AfiliadoA: Clica no link do Afiliado A
+    Sistema->>Sistema: Armazena first_touch=A (cookie)
+    
+    Cliente->>AfiliadoB: Clica no link do Afiliado B
+    Sistema->>Sistema: Armazena last_touch=B (mantém first_touch)
+    
+    Cliente->>Sistema: Realiza compra
+    Sistema->>Sistema: Verifica first_touch=A, last_touch=B
+    Sistema->>AfiliadoA: Atribui 30% da comissão total
+    Sistema->>AfiliadoB: Atribui 70% da comissão total
+```
+
+
+Mais complexo, mas mais justo em certos contextos:
+- Reconhece múltiplas contribuições no funil de vendas
+- Divide a comissão em proporções predefinidas
+- Requer rastreamento mais sofisticado de múltiplos pontos de contato
+
+
+```sql
+-- Exemplo simplificado de implementação de comissão dividida
+-- Assumindo que temos os cookies first_touch e last_touch
+
+
+-- Calcular comissão total disponível
+SET @total_commission = @distributable_amount * 0.30;
+
+
+-- Distribuir entre os afiliados (70% para último toque, 30% para primeiro)
+SET @last_touch_commission = @total_commission * 0.70;
+SET @first_touch_commission = @total_commission * 0.30;
+
+
+-- Registrar as comissões divididas
+INSERT INTO platform_commission (transaction_id, participant_id, amount, currency_code, source)
+VALUES 
+  (@transaction_id, (SELECT id FROM commission_participants WHERE platform_id = COOKIE['last_touch']), 
+   @last_touch_commission, 'BRL', 'AFFILIATE_CONVERTER'),
+  (@transaction_id, (SELECT id FROM commission_participants WHERE platform_id = COOKIE['first_touch']), 
+   @first_touch_commission, 'BRL', 'AFFILIATE_INITIATOR');
+```
+
+
+### Período de Cookie e Atribuição
+
+
+O tempo durante o qual um afiliado mantém o "crédito" por uma eventual compra (conhecido como "cookie duration" ou "attribution window") é um parâmetro crítico:
+
+
+```sql
+-- Exemplo: verificar se um cookie de afiliado ainda é válido
+SELECT 
+    CASE 
+        WHEN COOKIE['tracking_timestamp']::timestamp + INTERVAL '30 days' >= CURRENT_TIMESTAMP 
+        THEN 'Válido'
+        ELSE 'Expirado'
+    END AS status_cookie,
+    COOKIE['tracking_src'] AS codigo_afiliado,
+    COOKIE['tracking_timestamp']::timestamp AS data_clique,
+    COOKIE['tracking_timestamp']::timestamp + INTERVAL '30 days' AS data_expiracao,
+    CURRENT_TIMESTAMP AS data_atual,
+    (COOKIE['tracking_timestamp']::timestamp + INTERVAL '30 days' - CURRENT_TIMESTAMP) AS tempo_restante
+```
+
+
+Considerações sobre o período de atribuição:
+- **Período curto** (7-14 dias): Favorece decisões de compra rápidas, ideal para produtos de baixo ticket
+- **Período médio** (30 dias): Balanceado para a maioria dos produtos digitais
+- **Período longo** (60-90 dias): Adequado para produtos complexos com ciclo de decisão extenso
+- **Lifetime**: Em alguns casos, um afiliado pode manter a atribuição permanentemente para todos os produtos comprados pelo cliente (modelo de "cliente referido")
+
+
+(Ref: Sistema de Comissionamento, ID domain_commission_system_001)
+
+
+## Modelos de Negócio e Estruturas de Comissionamento
+
+
+O sistema foi projetado para suportar diversos modelos de negócio baseados em comissionamento:
+
+
+### 1. Programa de Afiliados Tradicional
+
+
+**Estrutura:** Um produtor e múltiplos afiliados independentes promovendo seus produtos.
+
+
+```mermaid
+graph TD
+    A[Produtor] --- B[Produto]
+    B --- C[Afiliado 1]
+    B --- D[Afiliado 2]
+    B --- E[Afiliado 3]
+    
+    C --- F[Clientes\nvia Afiliado 1]
+    D --- G[Clientes\nvia Afiliado 2]
+    E --- H[Clientes\nvia Afiliado 3]
+```
+
+
+**Implementação:**
+```sql
+-- 1. Configuração de comissão no produto
+UPDATE products
+SET affiliate_commission_percent = 30.0  -- 30% para afiliados
+WHERE id = 123;
+
+
+-- 2. Registro de comissão quando ocorre uma venda
+INSERT INTO platform_commission (
+    transaction_id,
+    participant_id,
+    amount,
+    currency_code,
+    source
+)
+VALUES (
+    @transaction_id,
+    (SELECT id FROM commission_participants WHERE platform_id = @tracking_source),
+    @distributable_amount * (SELECT affiliate_commission_percent/100 FROM products WHERE id = @product_id),
+    'BRL',
+    'AFFILIATE'
+);
+```
+
+
+**Características:**
+- Afiliados promovem produtos e recebem percentual fixo ou variável por venda
+- Cada afiliado opera independentemente, sem hierarquia
+- Comissões são pagas por performance (vendas concretizadas)
+- Rastreamento via `tracking_source` e `tracking_sck`
+
+
+### 2. Co-Produção / Revenue Share
+
+
+**Estrutura:** Múltiplos produtores compartilham a criação e propriedade de um produto.
+
+
+```mermaid
+graph LR
+    A[Produtor Principal 50%] --- D[Produto]
+    B[Co-Produtor A 30%] --- D
+    C[Co-Produtor B 20%] --- D
+    
+    D --- E[Todas as Vendas]
+    
+    E --- F[50% para Produtor Principal]
+    E --- G[30% para Co-Produtor A]
+    E --- H[20% para Co-Produtor B]
+```
+
+
+**Implementação:**
+```sql
+-- Configuração de uma co-produção (tabela product_coproducers seria uma adição)
+INSERT INTO product_coproducers (
+    product_id,
+    participant_id,
+    percentage
+)
+VALUES
+    (123, 456, 50.0),  -- Produtor principal com 50%
+    (123, 789, 30.0),  -- Co-produtor A com 30%
+    (123, 101, 20.0);  -- Co-produtor B com 20%
+
+
+-- Registro de comissões em uma venda
+INSERT INTO platform_commission (
+    transaction_id,
+    participant_id,
+    amount,
+    currency_code,
+    source
+)
+SELECT
+    @transaction_id,
+    pc.participant_id,
+    @distributable_amount * (pc.percentage / 100),
+    'BRL',
+    CASE WHEN pc.percentage = 50.0 THEN 'PRODUCER' ELSE 'COPRODUCER' END
+FROM
+    product_coproducers pc
+WHERE
+    pc.product_id = @product_id;
+```
+
+
+**Características:**
+- Cada co-produtor recebe percentual fixo de todas as vendas
+- Independe do canal de venda (com ou sem afiliado)
+- Divisão geralmente definida em contrato antes do lançamento
+- Automatizado para todas as transações do produto
+
+
+### 3. Marketing Multinível (MLM)
+
+
+**Estrutura:** Hierarquia de afiliados onde cada um pode recrutar outros, criando múltiplos níveis.
+
+
+```mermaid
+graph TD
+    A[Produtor] --- B[Produto]
+    
+    B --- C[Afiliado Nível 1]
+    C --- D[Afiliado Nível 2A]
+    C --- E[Afiliado Nível 2B]
+    D --- F[Afiliado Nível 3]
+    
+    C --- G[Vendas via Nível 1\n100% da comissão]
+    D --- H[Vendas via Nível 2A\n80% para 2A, 20% para 1]
+    E --- I[Vendas via Nível 2B\n80% para 2B, 20% para 1]
+    F --- J[Vendas via Nível 3\n70% para 3, 20% para 2A, 10% para 1]
+```
+
+
+**Implementação:**
+```sql
+-- Supondo uma tabela de hierarquia de afiliados
+CREATE TABLE affiliate_hierarchy (
+    id SERIAL PRIMARY KEY,
+    affiliate_id INTEGER REFERENCES commission_participants(id),
+    parent_id INTEGER REFERENCES commission_participants(id),
+    level INTEGER NOT NULL,  -- Nível na hierarquia
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- Função para distribuir comissões em múltiplos níveis
+CREATE OR REPLACE FUNCTION distribute_mlm_commissions(
+    p_transaction_id INTEGER,
+    p_affiliate_id INTEGER,
+    p_total_commission NUMERIC(15,4),
+    p_currency VARCHAR(3)
+) RETURNS VOID AS $$
+DECLARE
+    v_current_affiliate INTEGER;
+    v_level INTEGER;
+    v_commission NUMERIC(15,4);
+    v_commission_rate NUMERIC(5,2);
+BEGIN
+    -- Distribuir ao afiliado direto
+    INSERT INTO platform_commission (
+        transaction_id, participant_id, amount, currency_code, source
+    ) VALUES (
+        p_transaction_id, p_affiliate_id, p_total_commission * 0.7, p_currency, 'AFFILIATE'
+    );
+    
+    -- Buscar hierarquia e distribuir aos níveis superiores
+    FOR v_current_affiliate, v_level IN 
+        SELECT parent_id, level FROM affiliate_hierarchy 
+        WHERE affiliate_id = p_affiliate_id
+        ORDER BY level
+    LOOP
+        -- Definir taxa baseada no nível
+        IF v_level = 1 THEN
+            v_commission_rate := 0.2;  -- 20% para nível imediatamente superior
+        ELSE
+            v_commission_rate := 0.1;  -- 10% para nível avô
+        END IF;
+        
+        v_commission := p_total_commission * v_commission_rate;
+        
+        -- Registrar comissão para o nível superior
+        INSERT INTO platform_commission (
+            transaction_id, participant_id, amount, currency_code, source
+        ) VALUES (
+            p_transaction_id, v_current_affiliate, v_commission, p_currency, 
+            'LEVEL_' || v_level || '_OVERRIDE'
+        );
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+
+**Características:**
+- Afiliados podem recrutar outros afiliados, criando uma rede
+- Comissões são distribuídas em múltiplos níveis (ex: 70% nível 1, 20% nível 2, 10% nível 3)
+- Incentiva crescimento da rede de afiliados
+- Requer controle cuidadoso de relações hierárquicas
+
+
+### 4. Bônus e Incentivos Variáveis
+
+
+Além dos modelos básicos, o sistema pode implementar incentivos adicionais:
+
+
+```sql
+-- Exemplo: Bônus por volume de vendas para afiliados
+SELECT 
+    cp.id AS participant_id,
+    cp.email,
+    COUNT(*) AS total_sales,
+    SUM(pc.amount) AS total_commission,
+    CASE
+        WHEN COUNT(*) >= 50 THEN 'Gold (Bônus 20%)'
+        WHEN COUNT(*) >= 20 THEN 'Silver (Bônus 10%)'
+        WHEN COUNT(*) >= 10 THEN 'Bronze (Bônus 5%)'
+        ELSE 'Standard (Sem Bônus)'
+    END AS affiliate_tier,
+    CASE
+        WHEN COUNT(*) >= 50 THEN SUM(pc.amount) * 0.2
+        WHEN COUNT(*) >= 20 THEN SUM(pc.amount) * 0.1
+        WHEN COUNT(*) >= 10 THEN SUM(pc.amount) * 0.05
+        ELSE 0
+    END AS volume_bonus
+FROM 
+    platform_commission pc
+JOIN 
+    commission_participants cp ON pc.participant_id = cp.id
+JOIN 
+    transactions t ON pc.transaction_id = t.id
+WHERE 
+    pc.source = 'AFFILIATE'
+    AND t.order_date BETWEEN '2023-01-01' AND '2023-01-31'
+GROUP BY 
+    cp.id, cp.email;
+```
+
+
+**Tipos de Incentivos Suportados:**
+- **Bônus por volume**: Recompensas adicionais por atingir metas de vendas
+- **Comissões progressivas**: Percentuais que aumentam conforme o desempenho
+- **Bônus sazonais**: Taxas especiais durante campanhas ou lançamentos
+- **Comissões vitalícias**: Percentual menor mas permanente em todas as compras futuras do cliente
+
+
+(Ref: Sistema de Comissionamento, ID domain_commission_system_001)
+
+
+## Detecção de Fraudes e Proteção do Sistema
+
+
+Um sistema de comissionamento robusto precisa implementar proteções contra abusos e fraudes:
+
+
+### 1. Prevenção de Auto-Afiliação
+
+
+A auto-afiliação ocorre quando alguém usa o próprio link de afiliado para comprar:
+
+
+```sql
+-- Detecção de possíveis casos de auto-afiliação
+SELECT 
+    t.id AS transaction_id,
+    t.customer_id,
+    t.tracking_source,
+    c.email AS customer_email,
+    cp.email AS affiliate_email,
+    t.order_date,
+    pc.amount AS commission_amount
+FROM 
+    transactions t
+JOIN 
+    customers c ON t.customer_id = c.id
+JOIN 
+    platform_commission pc ON t.id = pc.transaction_id
+JOIN 
+    commission_participants cp ON pc.participant_id = cp.id
+WHERE 
+    -- Mesmo email
+    c.email = cp.email
+    -- Ou mesmo IP
+    OR t.ip_address = (
+        SELECT ip_address 
+        FROM affiliate_logins 
+        WHERE participant_id = pc.participant_id 
+        ORDER BY login_date DESC 
+        LIMIT 1
+    )
+    -- Ou mesmo dispositivo
+    OR t.device_fingerprint = (
+        SELECT device_fingerprint 
+        FROM affiliate_logins 
+        WHERE participant_id = pc.participant_id 
+        ORDER BY login_date DESC 
+        LIMIT 1
+    )
+ORDER BY 
+    t.order_date DESC;
+```
+
+
+**Métodos de Prevenção:**
+1. Bloqueio de comissões quando o cliente e afiliado têm o mesmo email
+2. Verificação de IP e dispositivo para identificar padrões suspeitos
+3. Análise de padrões de compra (timing, valor, frequência)
+4. Políticas claras proibindo a prática nos termos do programa
+
+
+### 2. Fraude de Cookies e Click Spam
+
+
+Manipulação de cookies ou geração de cliques fraudulentos:
+
+
+```sql
+-- Detecção de possível click spam (número anormal de cliques sem conversão)
+SELECT 
+    tracking_source,
+    COUNT(*) AS total_clicks,
+    COUNT(DISTINCT ip_address) AS unique_ips,
+    COUNT(DISTINCT user_agent) AS unique_browsers,
+    SUM(CASE WHEN converted = true THEN 1 ELSE 0 END) AS conversions,
+    CASE 
+        WHEN COUNT(*) > 0 THEN 
+            ROUND((SUM(CASE WHEN converted = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) * 100, 2)
+        ELSE 0
+    END AS conversion_rate
+FROM 
+    affiliate_click_tracking
+WHERE 
+    click_time BETWEEN '2023-01-01' AND '2023-01-31'
+GROUP BY 
+    tracking_source
+HAVING 
+    COUNT(*) > 1000 AND  -- Volume suspeito de cliques
+    (SUM(CASE WHEN converted = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) < 0.001  -- Taxa de conversão extremamente baixa
+ORDER BY 
+    total_clicks DESC;
+```
+
+
+**Proteções Implementadas:**
+1. Limitação de cliques por IP em um período
+2. Análise de proporção entre cliques e conversões
+3. Verificação de padrões temporais suspeitos (muitos cliques em sequência)
+4. Uso de tokens de clique únicos que expiram
+
+
+### 3. Abuso de Reembolsos
+
+
+Obtenção de comissões seguida de reembolsos estratégicos:
+
+
+```sql
+-- Identificação de padrões suspeitos de reembolso
+SELECT 
+    cp.id AS affiliate_id,
+    cp.email AS affiliate_email,
+    COUNT(*) AS total_sales,
+    SUM(CASE WHEN ts.status = 'Reembolsada' THEN 1 ELSE 0 END) AS refunded_sales,
+    ROUND((SUM(CASE WHEN ts.status = 'Reembolsada' THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) * 100, 2) AS refund_rate,
+    SUM(CASE WHEN ts.status = 'Reembolsada' THEN pc.amount ELSE 0 END) AS refunded_commission_amount
+FROM 
+    platform_commission pc
+JOIN 
+    commission_participants cp ON pc.participant_id = cp.id
+JOIN 
+    transactions t ON pc.transaction_id = t.id
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    t.order_date BETWEEN '2023-01-01' AND '2023-12-31'
+    AND pc.source = 'AFFILIATE'
+GROUP BY 
+    cp.id, cp.email
+HAVING 
+    COUNT(*) >= 10  -- Mínimo de vendas para análise
+    AND (SUM(CASE WHEN ts.status = 'Reembolsada' THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) > 0.3  -- Taxa de reembolso acima de 30%
+ORDER BY 
+    refund_rate DESC, total_sales DESC;
+```
+
+
+**Medidas de Proteção:**
+1. Período de carência antes do pagamento de comissões (após período de garantia)
+2. Estorno automático de comissões em caso de reembolso
+3. Monitoramento de taxas de reembolso por afiliado
+4. Suspensão de afiliados com padrões anormais de reembolso
+
+
+### 4. Políticas de Compliance
+
+
+```sql
+-- Implementação de um log de ações de compliance
+CREATE TABLE IF NOT EXISTS commission_compliance_actions (
+    id SERIAL PRIMARY KEY,
+    participant_id INTEGER REFERENCES commission_participants(id),
+    action_type VARCHAR(50) NOT NULL,  -- 'WARNING', 'SUSPENSION', 'TERMINATION', 'COMMISSION_REVERSAL'
+    reason TEXT NOT NULL,
+    affected_transactions INTEGER[],  -- Array de IDs de transações afetadas
+    amount_adjusted NUMERIC(15, 4),
+    action_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    performed_by VARCHAR(100) NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- Exemplo de registro de ação
+INSERT INTO commission_compliance_actions (
+    participant_id,
+    action_type,
+    reason,
+    affected_transactions,
+    amount_adjusted,
+    performed_by,
+    notes
+)
+VALUES (
+    123,  -- ID do participante
+    'COMMISSION_REVERSAL',
+    'Violação de termos: Auto-afiliação detectada',
+    ARRAY[456, 457, 458],  -- IDs das transações afetadas
+    350.75,  -- Total de comissões revertidas
+    'compliance_team',
+    'Múltiplas compras detectadas usando mesmo dispositivo e IP do afiliado'
+);
+```
+
+
+**Princípios de Compliance:**
+1. Termos e condições claros para participantes do programa
+2. Transparência nas regras de comissionamento e atribuição
+3. Processo documentado para disputas e apelações
+4. Monitoramento regular de padrões suspeitos
+5. Abordagem progressiva para violações (advertência → suspensão → encerramento)
+
+
+(Ref: Sistema de Comissionamento, ID domain_commission_system_001)
+
+
+## Análises e Relatórios de Comissionamento
+
+
+O sistema fornece dados para análises críticas sobre o desempenho do programa de comissionamento:
+
+
+### 1. Performance de Afiliados
+
+
+```sql
+-- Análise de desempenho dos top afiliados em um período
+SELECT 
+    cp.name AS affiliate_name,
+    cp.email,
+    COUNT(DISTINCT pc.transaction_id) AS total_sales,
+    SUM(pc.amount) AS total_commission,
+    AVG(pc.amount) AS avg_commission_per_sale,
+    SUM(t.offer_price) AS total_sales_value,
+    ROUND((SUM(pc.amount) / SUM(t.offer_price)) * 100, 2) AS effective_commission_rate,
+    -- Métricas de tendência
+    COUNT(DISTINCT CASE WHEN t.order_date >= CURRENT_DATE - INTERVAL '30 days' THEN pc.transaction_id END) AS sales_last_30_days,
+    COUNT(DISTINCT CASE WHEN t.order_date >= CURRENT_DATE - INTERVAL '60 days' AND t.order_date < CURRENT_DATE - INTERVAL '30 days' THEN pc.transaction_id END) AS sales_previous_30_days,
+    -- Crescimento mês a mês
+    CASE 
+        WHEN COUNT(DISTINCT CASE WHEN t.order_date >= CURRENT_DATE - INTERVAL '60 days' AND t.order_date < CURRENT_DATE - INTERVAL '30 days' THEN pc.transaction_id END) > 0 
+        THEN ROUND(
+            (COUNT(DISTINCT CASE WHEN t.order_date >= CURRENT_DATE - INTERVAL '30 days' THEN pc.transaction_id END)::numeric / 
+             COUNT(DISTINCT CASE WHEN t.order_date >= CURRENT_DATE - INTERVAL '60 days' AND t.order_date < CURRENT_DATE - INTERVAL '30 days' THEN pc.transaction_id END)::numeric - 1) * 100, 2
+        )
+        ELSE NULL
+    END AS mom_growth_percent
+FROM 
+    platform_commission pc
+JOIN 
+    commission_participants cp ON pc.participant_id = cp.id
+JOIN 
+    transactions t ON pc.transaction_id = t.id
+WHERE 
+    pc.source = 'AFFILIATE'
+    AND t.order_date >= CURRENT_DATE - INTERVAL '180 days'
+GROUP BY 
+    cp.id, cp.name, cp.email
+HAVING 
+    COUNT(DISTINCT pc.transaction_id) >= 5  -- Mínimo de 5 vendas para análise
+ORDER BY 
+    total_commission DESC
+LIMIT 50;
+```
+
+
+### 2. Análise de Produtos por Canais de Comissionamento
+
+
+```sql
+-- Análise de desempenho de produtos por tipo de canal
+WITH sales_by_channel AS (
+    SELECT 
+        p.id AS product_id,
+        p.name AS product_name,
+        CASE
+            WHEN t.tracking_source IS NULL THEN 'Venda Direta'
+            ELSE 'Via Afiliado'
+        END AS sales_channel,
+        COUNT(*) AS total_sales,
+        SUM(t.offer_price) AS total_sales_value,
+        SUM(t.partner_commission_amount) AS total_commission_paid,
+        SUM(t.producer_net_amount) AS total_producer_revenue
+    FROM 
+        transactions t
+    JOIN 
+        transaction_items ti ON t.id = ti.transaction_id
+    JOIN 
+        products p ON ti.product_id = p.id
+    JOIN 
+        transaction_statuses ts ON t.status_id = ts.id
+    WHERE 
+        ts.status = 'Aprovada'
+        AND t.order_date BETWEEN '2023-01-01' AND '2023-12-31'
+    GROUP BY 
+        p.id, p.name, 
+        CASE
+            WHEN t.tracking_source IS NULL THEN 'Venda Direta'
+            ELSE 'Via Afiliado'
+        END
+)
+SELECT 
+    product_id,
+    product_name,
+    SUM(total_sales) AS total_sales_all_channels,
+    SUM(total_sales_value) AS total_revenue_all_channels,
+    -- Vendas Diretas
+    MAX(CASE WHEN sales_channel = 'Venda Direta' THEN total_sales ELSE 0 END) AS direct_sales_count,
+    MAX(CASE WHEN sales_channel = 'Venda Direta' THEN total_sales_value ELSE 0 END) AS direct_sales_value,
+    -- Vendas via Afiliados
+    MAX(CASE WHEN sales_channel = 'Via Afiliado' THEN total_sales ELSE 0 END) AS affiliate_sales_count,
+    MAX(CASE WHEN sales_channel = 'Via Afiliado' THEN total_sales_value ELSE 0 END) AS affiliate_sales_value,
+    MAX(CASE WHEN sales_channel = 'Via Afiliado' THEN total_commission_paid ELSE 0 END) AS total_commissions,
+    -- Proporções
+    ROUND(MAX(CASE WHEN sales_channel = 'Via Afiliado' THEN total_sales ELSE 0 END)::numeric / 
+          NULLIF(SUM(total_sales)::numeric, 0) * 100, 2) AS affiliate_sales_percent,
+    -- Eficiência
+    ROUND(MAX(CASE WHEN sales_channel = 'Via Afiliado' THEN total_commission_paid ELSE 0 END)::numeric / 
+          NULLIF(MAX(CASE WHEN sales_channel = 'Via Afiliado' THEN total_sales_value ELSE 0 END)::numeric, 0) * 100, 2) AS commission_rate,
+    -- ROI
+    ROUND(MAX(CASE WHEN sales_channel = 'Via Afiliado' THEN total_producer_revenue ELSE 0 END)::numeric / 
+          NULLIF(MAX(CASE WHEN sales_channel = 'Via Afiliado' THEN total_commission_paid ELSE 0 END)::numeric, 0), 2) AS roi_per_commission_dollar
+FROM 
+    sales_by_channel
+GROUP BY 
+    product_id, product_name
+ORDER BY 
+    total_revenue_all_channels DESC;
+```
+
+
+### 3. Comissões Recorrentes de Assinaturas
+
+
+```sql
+-- Análise da longevidade de comissões recorrentes
+WITH recurring_commissions AS (
+    SELECT 
+        s.id AS subscription_id,
+        s.start_date,
+        MAX(t.recurrence_number) AS current_recurrence,
+        cp.id AS affiliate_id,
+        cp.name AS affiliate_name,
+        -- Comissão da primeira transação
+        (SELECT pc2.amount 
+         FROM platform_commission pc2 
+         JOIN transactions t2 ON pc2.transaction_id = t2.id 
+         WHERE t2.subscription_id = s.id AND t2.recurrence_number = 1 
+         AND pc2.participant_id = cp.id 
+         LIMIT 1) AS initial_commission,
+        -- Média das comissões recorrentes
+        AVG(CASE WHEN t.recurrence_number > 1 THEN pc.amount ELSE NULL END) AS avg_recurring_commission,
+        -- Total acumulado
+        SUM(pc.amount) AS lifetime_commission,
+        -- Duração em meses
+        EXTRACT(MONTH FROM AGE(CURRENT_TIMESTAMP, s.start_date)) AS subscription_age_months
+    FROM 
+        subscriptions s
+    JOIN 
+        transactions t ON s.id = t.subscription_id
+    JOIN 
+        platform_commission pc ON t.id = pc.transaction_id
+    JOIN 
+        commission_participants cp ON pc.participant_id = cp.id
+    WHERE 
+        pc.source = 'AFFILIATE'
+        AND s.start_date >= '2023-01-01'
+    GROUP BY 
+        s.id, s.start_date, cp.id, cp.name
+)
+SELECT 
+    affiliate_id,
+    affiliate_name,
+    COUNT(*) AS total_subscriptions,
+    AVG(current_recurrence) AS avg_recurrences,
+    AVG(initial_commission) AS avg_initial_commission,
+    AVG(avg_recurring_commission) AS avg_monthly_commission,
+    AVG(lifetime_commission) AS avg_lifetime_commission,
+    -- Múltiplo de valor inicial
+    ROUND(AVG(lifetime_commission) / NULLIF(AVG(initial_commission), 0), 2) AS lifetime_to_initial_multiple,
+    -- LTV por assinatura referida
+    SUM(lifetime_commission) / COUNT(*) AS ltv_per_referred_subscription,
+    -- Distribuição por longevidade
+    COUNT(CASE WHEN subscription_age_months <= 1 THEN 1 END) AS subscriptions_1m,
+    COUNT(CASE WHEN subscription_age_months > 1 AND subscription_age_months <= 3 THEN 1 END) AS subscriptions_1_3m,
+    COUNT(CASE WHEN subscription_age_months > 3 AND subscription_age_months <= 6 THEN 1 END) AS subscriptions_3_6m,
+    COUNT(CASE WHEN subscription_age_months > 6 THEN 1 END) AS subscriptions_6m_plus
+FROM 
+    recurring_commissions
+GROUP BY 
+    affiliate_id, affiliate_name
+ORDER BY 
+    avg_lifetime_commission DESC;
+```
+
+
+### 4. Relatório de Comissões para Participantes
+
+
+```sql
+-- Relatório detalhado para participantes (ex: para portal de afiliados)
+SELECT 
+    t.order_date,
+    t.transaction_id AS reference_id,
+    p.name AS product_name,
+    CASE 
+        WHEN t.is_subscription AND t.recurrence_number > 1 THEN 'Renovação'
+        ELSE 'Venda Nova'
+    END AS transaction_type,
+    t.offer_price AS sale_amount,
+    pc.amount AS commission_amount,
+    ROUND((pc.amount / t.offer_price) * 100, 2) AS commission_rate,
+    CASE
+        WHEN ts.status = 'Aprovada' THEN 'Paga'
+        WHEN ts.status = 'Reembolsada' THEN 'Estornada'
+        WHEN ts.status = 'Aguardando Período Garantia' THEN 'Pendente'
+        ELSE ts.status
+    END AS status,
+    t.tracking_sck AS campaign_code,
+    -- Info cliente (anonimizada)
+    CONCAT(SUBSTRING(c.email, 1, 2), '***', SUBSTRING(c.email FROM POSITION('@' IN c.email))) AS customer_email_masked
+FROM 
+    platform_commission pc
+JOIN 
+    transactions t ON pc.transaction_id = t.id
+JOIN 
+    transaction_items ti ON t.id = ti.transaction_id
+JOIN 
+    products p ON ti.product_id = p.id
+JOIN 
+    customers c ON t.customer_id = c.id
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    pc.participant_id = :participant_id  -- Parâmetro: ID do participante
+    AND t.order_date BETWEEN :start_date AND :end_date  -- Parâmetros: período
+ORDER BY 
+    t.order_date DESC;
+```
+
+
+(Ref: Sistema de Comissionamento, ID domain_commission_system_001)
+
+
+## Considerações de Implementação e Boas Práticas
+
+
+### 1. Otimização de Performance
+
+
+O volume de dados em um sistema de comissionamento pode crescer rapidamente, exigindo atenção à performance:
+
+
+```sql
+-- Índices recomendados
+CREATE INDEX IF NOT EXISTS idx_platform_commission_participant ON platform_commission (participant_id);
+CREATE INDEX IF NOT EXISTS idx_platform_commission_transaction ON platform_commission (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_platform_commission_source ON platform_commission (source);
+CREATE INDEX IF NOT EXISTS idx_platform_commission_created_at ON platform_commission (created_at);
+
+
+CREATE INDEX IF NOT EXISTS idx_transactions_tracking ON transactions (tracking_source, tracking_sck);
+CREATE INDEX IF NOT EXISTS idx_transactions_order_date ON transactions (order_date);
+
+
+CREATE INDEX IF NOT EXISTS idx_commission_participants_email ON commission_participants (LOWER(email));
+CREATE INDEX IF NOT EXISTS idx_commission_participants_platform ON commission_participants (platform_id, platform_origin);
+
+
+-- Particionamento recomendado para tabelas grandes
+-- Exemplo: Particionar platform_commission por data
+CREATE TABLE platform_commission_partitioned (
+    id             SERIAL,
+    transaction_id INTEGER NOT NULL,
+    participant_id INTEGER NOT NULL,
+    amount         NUMERIC(15, 4) NOT NULL,
+    currency_code  VARCHAR(3) NOT NULL,
+    source         VARCHAR(100),
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+) PARTITION BY RANGE (created_at);
+
+
+-- Criar partições por trimestre
+CREATE TABLE platform_commission_q1_2023 PARTITION OF platform_commission_partitioned
+    FOR VALUES FROM ('2023-01-01') TO ('2023-04-01');
+    
+CREATE TABLE platform_commission_q2_2023 PARTITION OF platform_commission_partitioned
+    FOR VALUES FROM ('2023-04-01') TO ('2023-07-01');
+```
+
+
+### 2. Integração com Sistemas Externos
+
+
+```mermaid
+sequenceDiagram
+    participant API as API Gateway
+    participant DB as Banco de Dados
+    participant Webhook as Webhook Handler
+    participant AffiliatePlatform as Plataforma de Afiliados
+    participant PaymentSystem as Sistema de Pagamentos
+    
+    AffiliatePlatform->>Webhook: Notifica nova venda via webhook
+    Webhook->>DB: Registra transação com tracking_source
+    DB->>DB: Calcula comissões
+    DB->>DB: Insere registros em platform_commission
+    
+    API->>DB: Solicita relatório de comissões a pagar
+    DB->>API: Retorna comissões pendentes
+    API->>PaymentSystem: Envia lote de pagamentos
+    PaymentSystem->>API: Confirma processamento
+    API->>DB: Atualiza status de pagamento das comissões
+    API->>AffiliatePlatform: Notifica comissões pagas
+```
+
+
+Considerações para integrações:
+1. **Robustez** na recepção de webhooks (retentativas, idempotência)
+2. **Validação** rigorosa de dados recebidos de sistemas externos
+3. **Auditoria** completa de transações para reconciliação
+4. **Processamento assíncrono** para operações que podem ser lentas
+5. **Circuit breakers** para proteger contra falhas em serviços externos
+
+
+### 3. Segurança e Privacidade
+
+
+```sql
+-- Exemplo: Acesso controlado a dados de comissão
+CREATE ROLE affiliate_portal_user;
+
+
+-- Permissões granulares
+GRANT SELECT ON commission_participants TO affiliate_portal_user;
+GRANT SELECT ON platform_commission TO affiliate_portal_user;
+
+
+-- Visualização com mascaramento de dados sensíveis
+CREATE VIEW affiliate_portal.commission_view AS
+SELECT 
+    pc.id,
+    pc.transaction_id,
+    t.order_date,
+    pc.amount,
+    pc.currency_code,
+    pc.source,
+    -- Cliente anonimizado
+    SUBSTRING(c.email FROM 1 FOR 2) || '***' || SUBSTRING(c.email FROM POSITION('@' IN c.email)) AS customer_masked,
+    p.name AS product_name
+FROM 
+    platform_commission pc
+JOIN 
+    transactions t ON pc.transaction_id = t.id
+JOIN 
+    customers c ON t.customer_id = c.id
+JOIN 
+    transaction_items ti ON t.id = ti.transaction_id
+JOIN 
+    products p ON ti.product_id = p.id
+WHERE 
+    pc.participant_id = current_setting('app.current_participant_id')::integer;
+
+
+GRANT SELECT ON affiliate_portal.commission_view TO affiliate_portal_user;
+```
+
+
+Práticas de segurança recomendadas:
+1. **Acesso granular** baseado em papéis e responsabilidades
+2. **Mascaramento** de dados sensíveis de clientes
+3. **Criptografia** de dados fiscais/bancários dos participantes
+4. **Registro de auditoria** para todas as modificações em comissões
+5. **Verificações** de segurança antes de cada pagamento
+
+
+### 4. Escalabilidade e Extensibilidade
+
+
+Abordagens para garantir que o sistema possa crescer:
+
+
+1. **Modularidade**
+   - Separação clara entre rastreamento, cálculo e pagamento
+   - Interfaces bem definidas entre componentes
+
+
+2. **Configurabilidade**
+   - Regras de comissionamento parametrizáveis
+   - Flexibilidade para adicionar novos modelos
+
+
+3. **Versionamento**
+   - Suporte a mudanças nas regras de comissão ao longo do tempo
+   - Preservação de regras antigas para transações existentes
+
+
+4. **Arquitetura para Multi-tenancy**
+   - Capacidade de suportar múltiplos programas de afiliados independentes
+   - Isolamento de dados entre diferentes produtos/programas
+
+
+(Ref: Sistema de Comissionamento, ID domain_commission_system_001)
+
+
+## Conclusão e Casos de Uso Reais
+
+
+O Sistema de Comissionamento é um componente crítico para operações que dependem de colaboração e distribuição de receita, suportando diversos modelos de negócio:
+
+
+### Casos de Uso Principais
+
+
+1. **Plataformas de Cursos Online**
+   - Produtores criam conteúdo educacional
+   - Afiliados promovem os cursos em troca de comissão
+   - Co-produtores contribuem com conteúdo/expertise e recebem parte da receita
+
+
+2. **Ecossistemas de Software**
+   - Empresas de SaaS oferecem programas de referência
+   - Parceiros estratégicos recebem comissão recorrente por clientes referidos
+   - Consultores implementam soluções e ganham percentual das licenças
+
+
+3. **Marketplaces Digitais**
+   - Criadores vendem produtos digitais
+   - A plataforma cobra uma taxa fixa
+   - Promotores recebem comissão por direcionar compradores
+
+
+4. **Clubes de Assinatura**
+   - Membros ganham por indicar novos assinantes
+   - Comissões recorrentes incentivam indicações de qualidade
+   - Estruturas multinível recompensam formação de comunidades
+
+
+### Valor Estratégico do Sistema
+
+
+1. **Alavancagem de Marketing**
+   - Transforma clientes satisfeitos em promotores ativos
+   - Acesso a públicos que seriam difíceis de alcançar com marketing tradicional
+   - Pagamento baseado em performance reduz risco de investimento inicial
+
+
+2. **Alinhamento de Incentivos**
+   - Cria relacionamentos ganha-ganha entre criadores, promotores e plataforma
+   - Incentiva comportamentos que geram valor para todos os envolvidos
+   - Facilita parcerias estratégicas com divisão justa de resultados
+
+
+3. **Escalabilidade de Negócio**
+   - Permite crescimento acelerado com custo inicial reduzido
+   - Suporta expansão para novos mercados através de afiliados locais
+   - Facilita teste de novos produtos com exposição imediata
+
+
+Este domínio fornece a infraestrutura fundamental para transformar um modelo de negócio tradicional em um ecossistema colaborativo onde múltiplos participantes contribuem para o sucesso e compartilham os resultados de forma proporcional e justa.
+
+
+(Ref: Sistema de Comissionamento, ID domain_commission_system_001)
+```
