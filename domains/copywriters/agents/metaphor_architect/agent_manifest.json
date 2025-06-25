@@ -1,0 +1,120 @@
+{
+  "agent_name": "metaphor_architect",
+  "domain": "copywriters",
+  "type": "main_agent",
+  "architecture": "prompt_based",
+  "migration_status": "migrated",
+  "migration_date": "2025-06-25T08:28:59.752022",
+  "subagents_count": 5,
+  "subagents": [
+    "domain-prospector",
+    "sensory-translator",
+    "concept-dissector",
+    "resonance-calibrator",
+    "isomorphism-engineer"
+  ],
+  "files": {
+    "prompt": "prompt.txt",
+    "tools": "tools.yaml",
+    "subagents_dir": "sub-agents"
+  },
+  "next_phase": "langraph_conversion",
+  "specialization": "Cria\u00e7\u00e3o de met\u00e1foras e mapeamento isom\u00f3rfico",
+  "agent_info": {
+    "name": "metaphor_architect",
+    "domain": "copywriters",
+    "version": "1.0.0",
+    "status": "production_ready",
+    "created_at": "2025-06-25T00:00:00Z"
+  },
+  "llm_config": {
+    "model": "gpt-4-turbo-preview",
+    "temperature": 0.8,
+    "max_tokens": 4000,
+    "api_key": "${OPENAI_API_KEY}",
+    "api_base": "https://api.openai.com/v1",
+    "timeout": 120,
+    "retry_attempts": 3,
+    "langsmith_config": {
+      "project_name": "copywriters_metaphor_architect",
+      "tags": [
+        "copywriters",
+        "metaphor_architect",
+        "production"
+      ],
+      "metadata": {
+        "agent_type": "production",
+        "domain": "copywriters",
+        "version": "1.0"
+      }
+    }
+  },
+  "tools_config": {
+    "enabled_tools": [
+      "web_search",
+      "knowledge_base",
+      "text_analysis",
+      "metaphor_generator",
+      "analogy_validator",
+      "creativity_enhancer"
+    ],
+    "tool_configs": {
+      "web_search": {
+        "provider": "serper",
+        "api_key": "${SERPER_API_KEY}",
+        "max_results": 10
+      },
+      "knowledge_base": {
+        "provider": "supabase",
+        "embedding_model": "text-embedding-ada-002",
+        "similarity_threshold": 0.8
+      }
+    }
+  },
+  "testing_config": {
+    "test_cases": [
+      {
+        "name": "basic_metaphor_architect_test",
+        "input": "Teste b\u00e1sico para metaphor_architect",
+        "expected_output_contains": [
+          "sucesso",
+          "resultado"
+        ],
+        "max_execution_time": 30
+      },
+      {
+        "name": "complex_metaphor_architect_test",
+        "input": "Teste complexo para metaphor_architect com m\u00faltiplas vari\u00e1veis",
+        "expected_output_contains": [
+          "an\u00e1lise",
+          "recomenda\u00e7\u00e3o"
+        ],
+        "max_execution_time": 60
+      }
+    ],
+    "performance_metrics": {
+      "response_time_threshold": 5.0,
+      "success_rate_threshold": 0.95,
+      "quality_score_threshold": 0.8
+    },
+    "monitoring": {
+      "log_level": "INFO",
+      "metrics_collection": true,
+      "error_tracking": true,
+      "performance_tracking": true
+    }
+  },
+  "deployment_config": {
+    "environment": "production",
+    "scaling": {
+      "min_instances": 1,
+      "max_instances": 5,
+      "target_cpu": 70
+    },
+    "health_check": {
+      "endpoint": "/health/metaphor_architect",
+      "interval": 30,
+      "timeout": 10
+    }
+  }
+}

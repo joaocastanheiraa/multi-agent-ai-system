@@ -1,0 +1,119 @@
+{
+  "projectName": "Sistema Multi-Agent AI v3.0 - Repository Optimized",
+  "projectDescription": "Migração completa do sistema multi-agente para arquitetura v3.0 baseada em domínios em repository-optimized/",
+  "version": "3.0.0",
+  "created": "2025-01-27T19:30:00Z",
+  "lastModified": "2025-01-27T19:30:00Z",
+  "tasks": [
+    {
+      "id": 1,
+      "title": "FASE A: Estrutura Base e Migração de Conteúdo",
+      "description": "Criar estrutura completa em repository-optimized/ e migrar todo conteúdo do sistema atual",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [],
+      "details": "Implementar script migrate_to_optimized.py para criar estrutura de diretórios baseada em domínios e migrar todos os agentes, knowledge bases e configurações do sistema atual para repository-optimized/",
+      "testStrategy": "Validar que todos os arquivos foram migrados corretamente e estrutura de diretórios está completa",
+      "subtasks": []
+    },
+    {
+      "id": 2,
+      "title": "FASE B: Transformação de Arquitetura",
+      "description": "Converter estrutura legada para nova arquitetura v3.0 com LangGraph e AutoGen",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [1],
+      "details": "Implementar script transform_architecture.py para converter prompt.txt em controllers LangGraph, transformar sub-agentes em AutoGen agents e converter tools.yaml em configurações MCP",
+      "testStrategy": "Verificar que todos os agentes foram transformados corretamente e interfaces unificadas estão funcionando",
+      "subtasks": []
+    },
+    {
+      "id": 3,
+      "title": "FASE C: Ingestão e RAG Otimizado",
+      "description": "Processar knowledge base com chunking inteligente e configurar Supabase vetorial",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [2],
+      "details": "Implementar script setup_rag_optimized.py para processar toda knowledge base, gerar embeddings otimizados, configurar Supabase vetorial e implementar busca semântica",
+      "testStrategy": "Testar busca semântica e verificar performance < 500ms para consultas vetoriais",
+      "subtasks": []
+    },
+    {
+      "id": 4,
+      "title": "FASE D: Configuração de Agentes",
+      "description": "Configurar workflows LangGraph e roteamento inteligente entre agentes",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [3],
+      "details": "Implementar script setup_agents_optimized.py para configurar workflows LangGraph para cada domínio, implementar roteamento inteligente e configurar comunicação inter-domínios",
+      "testStrategy": "Testar comunicação entre agentes e verificar que todos os workflows estão funcionando corretamente",
+      "subtasks": []
+    },
+    {
+      "id": 5,
+      "title": "FASE E: Interfaces e MCP",
+      "description": "Implementar FastAPI REST endpoints e configurar MCP server unificado",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [4],
+      "details": "Implementar script setup_interfaces_optimized.py para criar FastAPI REST endpoints, configurar WebSocket real-time e implementar MCP server unificado",
+      "testStrategy": "Testar todas as APIs REST e WebSocket, verificar autenticação e rate limiting",
+      "subtasks": []
+    },
+    {
+      "id": 6,
+      "title": "FASE F: Testes e Validação",
+      "description": "Implementar suíte completa de testes e validar migração",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [5],
+      "details": "Implementar script validate_optimized.py para criar testes unitários, integração e e2e, executar validação completa e comparar performance com sistema original",
+      "testStrategy": "Cobertura de testes > 80%, todos os testes passando, performance mantida ou melhorada",
+      "subtasks": []
+    },
+    {
+      "id": 7,
+      "title": "FASE G: Deploy e Observabilidade",
+      "description": "Configurar Docker containers, logging e monitoramento",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [6],
+      "details": "Implementar script deploy_optimized.py para configurar Docker containers, implementar logging estruturado, configurar métricas e monitoramento",
+      "testStrategy": "Verificar que containers funcionam corretamente, logs estão estruturados e métricas estão sendo coletadas",
+      "subtasks": []
+    },
+    {
+      "id": 8,
+      "title": "Script de Orquestração Principal",
+      "description": "Criar script principal run_migration_optimized.py para executar toda migração",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [],
+      "details": "Implementar script run_migration_optimized.py que orquestra todas as fases da migração com validação, backup e rollback automático",
+      "testStrategy": "Testar execução completa da migração e validar que rollback funciona corretamente",
+      "subtasks": []
+    },
+    {
+      "id": 9,
+      "title": "Documentação e Comparação",
+      "description": "Criar documentação completa e ferramentas de comparação",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [7],
+      "details": "Criar documentação de arquitetura, API e deployment, implementar scripts de comparação entre sistema original e otimizado",
+      "testStrategy": "Verificar que documentação está completa e scripts de comparação funcionam corretamente",
+      "subtasks": []
+    },
+    {
+      "id": 10,
+      "title": "Configuração de CI/CD",
+      "description": "Implementar pipelines automatizados para teste e deploy",
+      "status": "pending",
+      "priority": "low",
+      "dependencies": [9],
+      "details": "Configurar GitHub Actions para CI/CD, implementar pipelines de teste automatizado e deploy, configurar verificações de segurança",
+      "testStrategy": "Verificar que pipelines executam corretamente e deploy automatizado funciona",
+      "subtasks": []
+    }
+  ]
+} 

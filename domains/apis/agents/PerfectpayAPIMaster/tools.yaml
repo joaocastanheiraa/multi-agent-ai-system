@@ -1,0 +1,16 @@
+tools:
+  api_client:
+    config:
+      rate_limit: 100/minute
+      retry_attempts: 3
+      timeout: 30
+    description: Tool api_client para PerfectpayAPIMaster
+    enabled: true
+  json_parser:
+    config: {}
+    description: Tool json_parser para PerfectpayAPIMaster
+    enabled: true
+  webhook_handler:
+    config: {}
+    description: Tool webhook_handler para PerfectpayAPIMaster
+    enabled: true

@@ -1,0 +1,52 @@
+{
+  "domain_name": "apis",
+  "domain_type": "integration_services",
+  "description": "Domínio especializado em integrações com APIs de pagamento e e-commerce",
+  "migration_status": "migrated",
+  "migration_date": "2025-06-25T10:23:58.957159",
+  "agents": {
+    "main_agents_count": 6,
+    "sub_agents_count": 28,
+    "total_agents": 34,
+    "main_agents": [
+      "HotmartAPIMaster",
+      "KiwifyAPIMaster",
+      "PerfectpayAPIMaster",
+      "PaytAPIMaster",
+      "APIUnifyMaster",
+      "APIsImputOutputMapper"
+    ]
+  },
+  "api_integrations": [
+    "Hotmart API",
+    "Kiwify API",
+    "Perfectpay API",
+    "Payt API"
+  ],
+  "specializations": [
+    "Integração Hotmart completa",
+    "Integração Kiwify completa",
+    "Integração Perfectpay completa",
+    "Integração Payt completa",
+    "Unificação de múltiplas APIs",
+    "Mapeamento input/output"
+  ],
+  "architecture": {
+    "current": "prompt_based",
+    "target": "langgraph_controllers",
+    "sub_agents_target": "autogen_agents"
+  },
+  "next_phases": [
+    "langraph_conversion",
+    "autogen_implementation",
+    "api_optimization"
+  ],
+  "dependencies": [
+    "external_apis"
+  ],
+  "interfaces": [
+    "mcp_server",
+    "fastapi",
+    "webhooks"
+  ]
+}

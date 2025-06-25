@@ -1,0 +1,48 @@
+{
+  "domain_name": "knowledge",
+  "domain_type": "knowledge_management",
+  "description": "Domínio especializado em otimização RAG e processamento de documentos",
+  "migration_status": "migrated",
+  "migration_date": "2025-06-25T10:23:58.957441",
+  "agents": {
+    "main_agents_count": 1,
+    "sub_agents_count": 5,
+    "total_agents": 6,
+    "main_agents": [
+      "DocRAGOptimizer"
+    ]
+  },
+  "specializations": [
+    "Otimização RAG",
+    "Processamento de documentos",
+    "Busca semântica",
+    "Extração de conhecimento",
+    "Indexação vetorial"
+  ],
+  "knowledge_bases_managed": [
+    "conversion_catalyst_knowledge",
+    "metaphor_architect_knowledge",
+    "neurohook_knowledge",
+    "pain_detector_knowledge",
+    "paradigm_architect_knowledge",
+    "retention_architect_knowledge"
+  ],
+  "architecture": {
+    "current": "prompt_based",
+    "target": "langgraph_controllers",
+    "sub_agents_target": "autogen_agents"
+  },
+  "next_phases": [
+    "langraph_conversion",
+    "autogen_implementation",
+    "rag_optimization"
+  ],
+  "dependencies": [
+    "supabase_vector_db"
+  ],
+  "interfaces": [
+    "mcp_server",
+    "fastapi",
+    "vector_search"
+  ]
+}

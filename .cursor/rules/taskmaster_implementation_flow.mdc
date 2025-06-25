@@ -1,0 +1,268 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 🧠 Fluxo de Implementação Inteligente e Direcionado
+
+**REGRA CRÍTICA**: Este fluxo OBRIGATÓRIO transforma implementação caótica em execução profissional nível enterprise. NUNCA implemente sem seguir TODAS as fases.
+
+## 🎯 **Objetivos e Benefícios Garantidos**
+
+- 🚀 **+50% Velocidade**: Elimina retrabalho através de planejamento inteligente
+- 💎 **+90% Qualidade**: Decisões baseadas em research e contexto completo  
+- 🎯 **Foco Laser**: Zero implementações desnecessárias ou ambíguas
+- 🔄 **Zero Loops**: Sistema de validação previne ciclos infinitos
+- 🧠 **Inteligência Arquitetural**: Contexto completo antes de qualquer código
+
+---
+
+## 🔥 **FASES OBRIGATÓRIAS (5 FASES + 5 GATES)**
+
+### **🔍 FASE 0: ANÁLISE CONTEXTUAL PROFUNDA**
+**GATE 1**: Contexto arquitetural completo validado
+
+**🎯 MCP Tool**: `research`
+```
+research(
+  query="Análise da arquitetura atual, padrões existentes que devem ser seguidos e contexto do sistema multi-agente", 
+  includeProjectTree=true, 
+  filePaths="agents/,docs/,knowledge_base_source/",
+  detailLevel="high",
+  saveFile=true
+)
+```
+
+**🎯 CLI Alternativo**: 
+```bash
+task-master research "Análise da arquitetura atual e padrões existentes" --tree --files="agents/,docs/,knowledge_base_source/" --detail=high --save-file
+```
+
+**✅ CHECKPOINT 1**: Você DEVE entender completamente:
+- Arquitetura atual do sistema multi-agente
+- Padrões existentes que DEVEM ser seguidos  
+- Domínios, agentes e sub-agentes relacionados
+- Dependências e integrações críticas
+
+---
+
+### **📝 FASE 1: PRD INTELIGENTE E CONTEXTUALIZADO**
+**GATE 2**: PRD completo baseado em análise contextual
+
+**🎯 Ação**: Criar PRD em `scripts/PRD.txt` usando template `.taskmaster/templates/example_prd.txt`
+
+**📋 TEMPLATE APRIMORADO**: O PRD DEVE incluir:
+- **Contexto Real**: Baseado na Fase 0 de análise
+- **Domínios Impactados**: Quais partes do sistema multi-agente
+- **Agentes Relacionados**: Que agentes serão afetados
+- **Integrações**: Com sistemas existentes
+- **Padrões Obrigatórios**: Que devem ser seguidos
+- **Arquitetura Técnica**: Alinhada com sistema atual
+- **Roadmap Lógico**: Dependências e sequência de desenvolvimento
+
+**✅ CHECKPOINT 2**: PRD DEVE estar 100% alinhado com:
+- Arquitetura descoberta na Fase 0
+- Padrões existentes do sistema
+- Necessidades reais vs. implementação desnecessária
+
+---
+
+### **🤖 FASE 2: GERAÇÃO INTELIGENTE DE TAREFAS**
+**GATE 3**: Tarefas geradas com contexto completo
+
+**🎯 MCP Tool**: `parse_prd`
+```
+parse_prd(
+  input="scripts/PRD.txt",
+  force=true
+)
+```
+
+**🎯 CLI Alternativo**: 
+```bash
+task-master parse-prd scripts/PRD.txt --force
+```
+
+**✅ CHECKPOINT 3**: Tarefas DEVEM refletir:
+- Todos os requisitos do PRD contextualizado
+- Alinhamento com arquitetura existente  
+- Dependências lógicas corretas
+- Escopo realista e implementável
+
+---
+
+### **🔬 FASE 3: ANÁLISE DE COMPLEXIDADE AVANÇADA**
+**GATE 4**: Complexidade mapeada com research
+
+**🎯 MCP Tool**: `analyze_project_complexity`
+```
+analyze_project_complexity(
+  research=true,
+  tag="master"
+)
+```
+
+**🎯 CLI Alternativo**: 
+```bash
+task-master analyze-complexity --research
+```
+
+**📊 Verificar Relatório**:
+**🎯 MCP Tool**: `complexity_report`
+```
+complexity_report(tag="master")
+```
+
+**🎯 CLI Alternativo**: 
+```bash
+task-master complexity-report
+```
+
+**✅ CHECKPOINT 4**: Análise DEVE identificar:
+- Tarefas de alta complexidade (8-10) para breakdown  
+- Dependencies críticas entre tarefas
+- Riscos técnicos potenciais
+- Estimativas realistas de esforço
+
+---
+
+### **🔧 FASE 4: EXPANSÃO INTELIGENTE DIRECIONADA**
+**GATE 5**: Subtarefas otimizadas e contextualizadas
+
+**🎯 MCP Tool**: `expand_all`
+```
+expand_all(
+  research=true,
+  force=true,
+  prompt="Contexto da Fase 0: [resumo da análise] + Padrões obrigatórios: [padrões identificados]"
+)
+```
+
+**🎯 CLI Alternativo**: 
+```bash
+task-master expand --all --research --force --prompt="Contexto + Padrões"
+```
+
+**✅ CHECKPOINT 5**: Expansão DEVE garantir:
+- Subtarefas alinhadas com padrões descobertos
+- Breakdown baseado em complexidade real
+- Contexto arquitetural preservado
+- Implementação direcionada e eficiente
+
+---
+
+### **🚀 FASE 5: EXECUÇÃO DIRECIONADA E OTIMIZADA**
+**Loop Inteligente**: Contexto preservado em cada iteração
+
+**🎯 MCP Tools Sequence**:
+```
+1. next_task() → Próxima tarefa baseada em dependências
+2. research(query="[contexto específico da tarefa]", taskIds="[id]") → Research contextualizado
+3. update_subtask(id="X.Y", prompt="[descobertas + progresso]") → Log iterativo  
+4. set_task_status(id="X.Y", status="done") → Marca conclusão
+```
+
+**🎯 CLI Alternativo**:
+```bash
+1. task-master next
+2. task-master research "[contexto da tarefa]" --id="X.Y" --save-to="X.Y"
+3. task-master update-subtask --id="X.Y" --prompt="[progresso]"
+4. task-master set-status --id="X.Y" --status=done
+```
+
+---
+
+## 🛡️ **SISTEMA DE PREVENÇÃO DE LOOPS E RECOVERY**
+
+### **🔍 Detecção Automática de Problemas**
+- **Loop Infinito**: Mesma tarefa > 3 iterações sem progresso
+- **Deriva de Contexto**: Implementação divergindo do PRD
+- **Quebra de Padrões**: Código fora dos padrões descobertos
+- **Dependências Quebradas**: Circular ou inexistentes
+
+### **🔧 Recovery Automático**
+**🎯 MCP Tools**: `update`, `update_task`
+```
+update(from="[id_problema]", prompt="Correção baseada em [contexto_original]", research=true)
+update_task(id="[id_específico]", prompt="Realinhamento com PRD e padrões", research=true)
+```
+
+**🎯 CLI Alternativo**:
+```bash
+task-master update --from="[id]" --prompt="Correção" --research
+task-master update-task --id="[id]" --prompt="Realinhamento" --research
+```
+
+---
+
+## 📊 **MÉTRICAS E KPIs OBRIGATÓRIOS**
+
+### **🎯 Métricas de Eficácia**
+- **Velocidade**: Tempo médio por tarefa vs baseline
+- **Qualidade**: % de tarefas completadas sem retrabalho  
+- **Direcionamento**: % de implementações alinhadas com PRD
+- **Eficiência**: Ratio de código útil vs código descartado
+- **Contexto**: % de decisões baseadas em research
+
+### **📈 Tracking Contínuo**
+- Checkpoint completions vs tempo
+- Research usage vs qualidade de output
+- Pattern compliance vs architectural debt
+- Loop prevention efficiency vs time saved
+
+---
+
+## ⚡ **COMANDOS DE REFERÊNCIA RÁPIDA**
+
+### **🤖 MCP Tools (PREFERIDOS)**
+```
+research(query="...", includeProjectTree=true, filePaths="...", detailLevel="high")
+parse_prd(input="scripts/PRD.txt", force=true)
+analyze_project_complexity(research=true)
+complexity_report()
+expand_all(research=true, force=true, prompt="...")
+next_task()
+update_subtask(id="X.Y", prompt="...", research=true)
+set_task_status(id="X.Y", status="done")
+update(from="X", prompt="...", research=true)
+update_task(id="X", prompt="...", research=true)
+```
+
+### **💻 CLI Commands (FALLBACK)**
+```bash
+task-master research "[query]" --tree --files="..." --detail=high --save-file
+task-master parse-prd scripts/PRD.txt --force  
+task-master analyze-complexity --research
+task-master complexity-report
+task-master expand --all --research --force --prompt="..."
+task-master next
+task-master update-subtask --id="X.Y" --prompt="..." --research
+task-master set-status --id="X.Y" --status=done
+task-master update --from="X" --prompt="..." --research
+task-master update-task --id="X" --prompt="..." --research
+```
+
+---
+
+## 🎯 **EXEMPLO DE FLUXO COMPLETO**
+
+```
+🔍 FASE 0: research(query="Sistema multi-agente atual", includeProjectTree=true, filePaths="agents/,docs/")
+📝 FASE 1: Criar PRD baseado na análise ↑ em scripts/PRD.txt  
+🤖 FASE 2: parse_prd(input="scripts/PRD.txt", force=true)
+🔬 FASE 3: analyze_project_complexity(research=true) + complexity_report()
+🔧 FASE 4: expand_all(research=true, force=true, prompt="Contexto da Fase 0")
+🚀 FASE 5: Loop → next_task() → research() → code → update_subtask() → set_task_status()
+```
+
+---
+
+## 🚨 **ALERTAS CRÍTICOS**
+
+- **❌ NUNCA pule a Fase 0**: Contexto é OBRIGATÓRIO
+- **❌ NUNCA implemente sem PRD**: Planning prevents poor performance  
+- **❌ NUNCA ignore os Gates**: Validação é CRÍTICA
+- **❌ NUNCA implemente fora dos padrões**: Consistency is king
+- **❌ NUNCA continue sem research**: Context drives quality
+
+**✅ LEMBRE-SE**: Este fluxo é um investimento que paga dividendos massivos em velocidade, qualidade e manutenibilidade. Execute religiosamente.

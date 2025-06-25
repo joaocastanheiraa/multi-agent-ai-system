@@ -1,0 +1,13 @@
+tools:
+  document_processor:
+    config: {}
+    description: Tool document_processor para DocRAGOptimizer
+    enabled: true
+  embedding_generator:
+    config: {}
+    description: Tool embedding_generator para DocRAGOptimizer
+    enabled: true
+  rag_search:
+    config: {}
+    description: Tool rag_search para DocRAGOptimizer
+    enabled: true

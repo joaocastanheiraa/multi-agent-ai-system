@@ -1,0 +1,40 @@
+{
+  "domain_name": "analytics",
+  "domain_type": "data_analysis",
+  "description": "Domínio especializado em análise de dados e geração de insights avançados",
+  "migration_status": "migrated",
+  "migration_date": "2025-06-25T10:23:58.957316",
+  "agents": {
+    "main_agents_count": 1,
+    "sub_agents_count": 5,
+    "total_agents": 6,
+    "main_agents": [
+      "ANALYTICSGPT | Super Track"
+    ]
+  },
+  "specializations": [
+    "Análise de dados avançada",
+    "Geração de insights",
+    "Tracking e monitoramento",
+    "Métricas de performance",
+    "Relatórios automatizados"
+  ],
+  "architecture": {
+    "current": "prompt_based",
+    "target": "langgraph_controllers",
+    "sub_agents_target": "autogen_agents"
+  },
+  "next_phases": [
+    "langraph_conversion",
+    "autogen_implementation",
+    "analytics_optimization"
+  ],
+  "dependencies": [
+    "data_sources"
+  ],
+  "interfaces": [
+    "mcp_server",
+    "fastapi",
+    "dashboards"
+  ]
+}

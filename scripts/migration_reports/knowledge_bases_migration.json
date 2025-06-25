@@ -1,0 +1,18 @@
+{
+  "migration_type": "Knowledge Bases Complete",
+  "start_time": "2025-06-25T08:35:18.557887",
+  "knowledge_bases_migrated": [
+    "conversion_catalyst_knowledge",
+    "metaphor_architect_knowledge",
+    "neurohook_knowledge",
+    "pain_detector_knowledge",
+    "paradigm_architect_knowledge",
+    "retention_architect_knowledge"
+  ],
+  "files_migrated": 49,
+  "errors": [],
+  "end_time": "2025-06-25T08:35:18.587762",
+  "success": true,
+  "kb_total": 6,
+  "kb_migrated_count": 6
+}

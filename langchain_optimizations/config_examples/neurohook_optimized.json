@@ -1,0 +1,15 @@
+{
+  "name": "neurohook_ultra_optimized",
+  "model": "gpt-4o-mini",
+  "temperature": 0.8,
+  "max_tokens": 2500,
+  "timeout": 60,
+  "enable_memory": true,
+  "memory_type": "buffer",
+  "enable_cache": true,
+  "cache_ttl": 3600,
+  "log_level": "INFO",
+  "enable_streaming": false,
+  "max_retries": 3,
+  "retry_delay": 1.0
+}

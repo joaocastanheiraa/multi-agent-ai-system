@@ -1,0 +1,20 @@
+{
+  "knowledge_base_name": "paradigm_architect_knowledge",
+  "type": "domain_knowledge_base",
+  "migration_status": "migrated",
+  "migration_date": "2025-06-25T08:35:18.581907",
+  "total_files": 7,
+  "subdirectories": [
+    "Modelos_de_Arquitetura_Conceitual",
+    "AXIOM-ARCHAEOLOGIST",
+    "Frameworks_de_Transformacao_Paradigmatica",
+    "Metodologias_de_Legitimacao_Conceitual",
+    "Tecnicas_de_Engenharia_de_Linguagem_Paradigmatica"
+  ],
+  "root_files": [],
+  "specialization": "Frameworks de transformação, metodologias de legitimação, técnicas de engenharia",
+  "next_phase": "rag_optimization",
+  "target_vector_db": "supabase",
+  "chunking_strategy": "semantic",
+  "embedding_model": "text-embedding-3-large"
+}

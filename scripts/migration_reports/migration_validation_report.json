@@ -1,0 +1,110 @@
+{
+  "migration_valid": true,
+  "timestamp": "2025-06-25T10:41:02.312630",
+  "validations": {
+    "domains": {
+      "valid": true,
+      "expected_domains": [
+        "copywriters",
+        "apis",
+        "analytics",
+        "knowledge"
+      ],
+      "found_domains": [
+        "apis",
+        "knowledge",
+        "copywriters",
+        "analytics"
+      ],
+      "missing_domains": [],
+      "issues": []
+    },
+    "agents": {
+      "valid": true,
+      "domains": {
+        "apis": {
+          "agents": [
+            {
+              "name": "agents",
+              "path": "domains/apis/agents",
+              "has_prompt": false,
+              "has_tools": false,
+              "has_knowledge": false,
+              "sub_agents_count": 0,
+              "files_count": 171
+            }
+          ],
+          "agents_count": 1,
+          "sub_agents_count": 0,
+          "total_files": 171,
+          "issues": []
+        },
+        "knowledge": {
+          "agents": [
+            {
+              "name": "agents",
+              "path": "domains/knowledge/agents",
+              "has_prompt": false,
+              "has_tools": false,
+              "has_knowledge": false,
+              "sub_agents_count": 0,
+              "files_count": 21
+            }
+          ],
+          "agents_count": 1,
+          "sub_agents_count": 0,
+          "total_files": 21,
+          "issues": []
+        },
+        "copywriters": {
+          "agents": [
+            {
+              "name": "agents",
+              "path": "domains/copywriters/agents",
+              "has_prompt": false,
+              "has_tools": false,
+              "has_knowledge": false,
+              "sub_agents_count": 0,
+              "files_count": 125
+            }
+          ],
+          "agents_count": 1,
+          "sub_agents_count": 0,
+          "total_files": 125,
+          "issues": []
+        },
+        "analytics": {
+          "agents": [
+            {
+              "name": "agents",
+              "path": "domains/analytics/agents",
+              "has_prompt": false,
+              "has_tools": false,
+              "has_knowledge": false,
+              "sub_agents_count": 0,
+              "files_count": 28
+            }
+          ],
+          "agents_count": 1,
+          "sub_agents_count": 0,
+          "total_files": 28,
+          "issues": []
+        }
+      },
+      "summary": {
+        "total_agents": 4,
+        "total_sub_agents": 0,
+        "total_files": 345
+      },
+      "issues": []
+    }
+  },
+  "summary": {
+    "total_domains": 4,
+    "total_agents": 4,
+    "total_sub_agents": 0,
+    "total_files": 345,
+    "total_issues": 0
+  },
+  "all_issues": []
+}

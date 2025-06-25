@@ -1,0 +1,102 @@
+{
+  "agent_name": "ANALYTICSGPT | Super Track",
+  "domain": "analytics",
+  "type": "main_agent",
+  "architecture": "prompt_based",
+  "migration_status": "migrated",
+  "migration_date": "2025-06-25T08:33:59.741459",
+  "subagents_count": 0,
+  "subagents": [],
+  "knowledge_bases": [
+    "knowledge_base"
+  ],
+  "files": {
+    "prompt": "prompt.txt",
+    "tools": "tools.yaml"
+  },
+  "next_phase": "langraph_conversion",
+  "specialization": "An\u00e1lise de dados e gera\u00e7\u00e3o de insights avan\u00e7ados",
+  "agent_info": {
+    "name": "ANALYTICSGPT | Super Track",
+    "domain": "analytics",
+    "version": "1.0.0",
+    "status": "production_ready",
+    "created_at": "2025-06-25T00:00:00Z"
+  },
+  "llm_config": {
+    "model": "gpt-4-turbo-preview",
+    "temperature": 0.2,
+    "max_tokens": 3000,
+    "api_key": "${OPENAI_API_KEY}",
+    "api_base": "https://api.openai.com/v1",
+    "timeout": 120,
+    "retry_attempts": 3,
+    "langsmith_config": {
+      "project_name": "analytics_ANALYTICSGPT | Super Track",
+      "tags": [
+        "analytics",
+        "ANALYTICSGPT | Super Track",
+        "production"
+      ],
+      "metadata": {
+        "agent_type": "production",
+        "domain": "analytics",
+        "version": "1.0"
+      }
+    }
+  },
+  "tools_config": {
+    "enabled_tools": [
+      "data_analysis",
+      "chart_generator",
+      "sql_query"
+    ],
+    "tool_configs": {}
+  },
+  "testing_config": {
+    "test_cases": [
+      {
+        "name": "basic_ANALYTICSGPT | Super Track_test",
+        "input": "Teste b\u00e1sico para ANALYTICSGPT | Super Track",
+        "expected_output_contains": [
+          "sucesso",
+          "resultado"
+        ],
+        "max_execution_time": 30
+      },
+      {
+        "name": "complex_ANALYTICSGPT | Super Track_test",
+        "input": "Teste complexo para ANALYTICSGPT | Super Track com m\u00faltiplas vari\u00e1veis",
+        "expected_output_contains": [
+          "an\u00e1lise",
+          "recomenda\u00e7\u00e3o"
+        ],
+        "max_execution_time": 60
+      }
+    ],
+    "performance_metrics": {
+      "response_time_threshold": 5.0,
+      "success_rate_threshold": 0.95,
+      "quality_score_threshold": 0.8
+    },
+    "monitoring": {
+      "log_level": "INFO",
+      "metrics_collection": true,
+      "error_tracking": true,
+      "performance_tracking": true
+    }
+  },
+  "deployment_config": {
+    "environment": "production",
+    "scaling": {
+      "min_instances": 1,
+      "max_instances": 5,
+      "target_cpu": 70
+    },
+    "health_check": {
+      "endpoint": "/health/ANALYTICSGPT | Super Track",
+      "interval": 30,
+      "timeout": 10
+    }
+  }
+}

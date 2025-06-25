@@ -1,0 +1,20 @@
+{
+  "knowledge_base_name": "retention_architect_knowledge",
+  "type": "domain_knowledge_base",
+  "migration_status": "migrated",
+  "migration_date": "2025-06-25T08:35:18.587005",
+  "total_files": 6,
+  "subdirectories": [
+    "cognitive_foundations",
+    "master_examples",
+    "retention_techniques"
+  ],
+  "root_files": [
+    "summary"
+  ],
+  "specialization": "Cognitive foundations, master examples, retention techniques",
+  "next_phase": "rag_optimization",
+  "target_vector_db": "supabase",
+  "chunking_strategy": "semantic",
+  "embedding_model": "text-embedding-3-large"
+}

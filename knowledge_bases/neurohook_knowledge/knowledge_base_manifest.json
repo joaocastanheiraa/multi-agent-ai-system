@@ -1,0 +1,20 @@
+{
+  "knowledge_base_name": "neurohook_knowledge",
+  "type": "domain_knowledge_base",
+  "migration_status": "migrated",
+  "migration_date": "2025-06-25T08:35:18.570145",
+  "total_files": 5,
+  "subdirectories": [
+    "implementation_guides",
+    "hook_techniques",
+    "core_foundations",
+    "linguistic_engineering",
+    "audience_psychology"
+  ],
+  "root_files": [],
+  "specialization": "Audience psychology, hook techniques, linguistic engineering",
+  "next_phase": "rag_optimization",
+  "target_vector_db": "supabase",
+  "chunking_strategy": "semantic",
+  "embedding_model": "text-embedding-3-large"
+}

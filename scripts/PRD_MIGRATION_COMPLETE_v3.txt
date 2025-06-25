@@ -1,0 +1,119 @@
+# PRD: MIGRAÇÃO COMPLETA SISTEMA MULTI-AGENT AI v3.0
+## Transformação Arquitetural Completa - Repository Optimized
+
+### 1. ANÁLISE DE CONTEXTO CRÍTICO
+
+**SITUAÇÃO ATUAL - SISTEMA LEGADO**:
+- 📊 **187 arquivos** distribuídos em estrutura legada `agents_*/`
+- 🏗️ **13+ agentes principais** com 50+ sub-agentes especializados
+- 📁 **Estrutura dispersa**: agents_copywriters (6), agents_apis (6), agents_analytics (1), agents_knowledgebases_masters (1)
+- 🔧 **Tecnologia legada**: prompt.txt + tools.yaml sem orquestração moderna
+- 💾 **Knowledge bases fragmentadas** sem RAG otimizado
+- 🚫 **Sem testes automatizados** ou CI/CD
+
+**PROBLEMA CRÍTICO**:
+A migração anterior foi **extremamente superficial** - apenas estrutura de diretórios foi criada, mas:
+- ❌ **0% dos agentes** foram migrados funcionalmente
+- ❌ **0% dos sub-agentes** foram transformados
+- ❌ **0% das ferramentas** foram convertidas para MCP
+- ❌ **0% da orquestração** LangGraph foi implementada
+- ❌ **0% do RAG** foi configurado
+- ❌ **0% das APIs** foram implementadas
+
+### 2. INVENTÁRIO COMPLETO DO SISTEMA ATUAL
+
+#### 2.1 DOMÍNIO COPYWRITERS (6 agentes + 30 sub-agentes)
+```
+agents_copywriters/
+├── conversion_catalyst/           # AGENTE PRINCIPAL
+│   ├── prompt.txt (206 linhas)   # → LangGraph Controller
+│   ├── tools.yaml (vazio)        # → MCP Tools
+│   └── sub-agents/               # → AutoGen Agents
+│       ├── decision-mapper/      # 228 linhas prompt
+│       ├── value_amplifier/      # Análise de valor
+│       ├── risk_neutralizer/     # Neutralização de riscos
+│       ├── urgency_architect/    # Criação de urgência
+│       └── command-architect/    # Comandos persuasivos
+├── neurohook_ultra/              # AGENTE PRINCIPAL
+│   ├── prompt.txt               # → LangGraph Controller
+│   ├── tools.yaml (51 linhas)   # → MCP Tools (5 sub-agents)
+│   └── sub-agents/              # → AutoGen Agents
+│       ├── cognition_scanner/   # Neurociência cognitiva
+│       ├── dissonance_architect/# Disrupção cognitiva
+│       ├── relevance_engineer/  # Otimização linguística
+│       ├── credibility_calibrator/# Credibilidade
+│       └── urgency_programmer/  # Gatilhos de conversão
+├── pain_detector/               # AGENTE PRINCIPAL
+├── paradigm_architect/         # AGENTE PRINCIPAL
+├── metaphor_architect/         # AGENTE PRINCIPAL
+└── retention_architect/        # AGENTE PRINCIPAL
+```
+
+#### 2.2 DOMÍNIO APIS (6 agentes + 15 sub-agentes)
+```
+agents_apis/
+├── HotmartAPIMaster/          # AGENTE PRINCIPAL + knowledge_base
+├── KiwifyAPIMaster/           # AGENTE PRINCIPAL + knowledge_base
+├── PerfectpayAPIMaster/       # AGENTE PRINCIPAL
+├── PaytAPIMaster/             # AGENTE PRINCIPAL
+├── APIUnifyMaster/            # AGENTE PRINCIPAL
+└── APIsImputOutputMapper/     # AGENTE PRINCIPAL (3 sub-agents)
+```
+
+### 3. FASES DE IMPLEMENTAÇÃO DETALHADAS
+
+#### FASE A: MIGRAÇÃO ESTRUTURAL COMPLETA (60 min)
+**Script**: `scripts/migrate_complete_structure.py`
+- Migrar 187 arquivos com mapeamento preciso
+- Criar estrutura de domínios completa
+- Preservar todas as funcionalidades
+
+#### FASE B: TRANSFORMAÇÃO LANGGRAPH (90 min)
+**Script**: `scripts/transform_to_langgraph.py`
+- Converter 13 agentes principais prompt.txt → LangGraph Controllers
+- Implementar workflows específicos
+- Configurar state management
+
+#### FASE C: IMPLEMENTAÇÃO AUTOGEN (75 min)
+**Script**: `scripts/setup_autogen_agents.py`
+- Converter 55 sub-agentes prompt.txt → AutoGen Agents
+- Implementar conversação multi-turn
+- Configurar delegação inteligente
+
+#### FASE D: RAG OTIMIZADO (60 min)
+**Script**: `scripts/setup_rag_complete.py`
+- Processar knowledge bases
+- Configurar Supabase vetorial
+- Implementar busca semântica
+
+#### FASE E: MCP E APIS (45 min)
+**Script**: `scripts/setup_interfaces.py`
+- Implementar MCP server
+- Criar APIs FastAPI
+- Configurar WebSocket
+
+#### FASE F: TESTES E VALIDAÇÃO (90 min)
+**Script**: `scripts/test_complete_system.py`
+- Testes unitários e integração
+- Validação de funcionalidade
+- Benchmarks de performance
+
+### 4. CRITÉRIOS DE SUCESSO
+
+- ✅ **187 arquivos** migrados e funcionais
+- ✅ **13 agentes LangGraph** implementados
+- ✅ **55 sub-agentes AutoGen** funcionais
+- ✅ **RAG** < 500ms
+- ✅ **APIs** FastAPI funcionais
+- ✅ **Testes** > 85% cobertura
+
+### 5. ENTREGÁVEIS FINAIS
+
+- Sistema completo em repository-optimized/
+- Documentação técnica completa
+- Testes automatizados
+- Scripts de deploy
+- Monitoramento configurado
+
+---
+**IMPORTANTE**: Esta migração é **CRÍTICA** e deve ser executada com **PRECISÃO ABSOLUTA**.

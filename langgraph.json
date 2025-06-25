@@ -1,0 +1,22 @@
+{
+  "dependencies": [
+    "./requirements.txt"
+  ],
+  "environment": ".env",
+  "graphs": {
+    "analytics_gpt": "./langgraph_controllers/ANALYTICSGPT | Super Track_controller.py:ANALYTICSGPT_Super_Track_graph",
+    "api_unify_master": "./langgraph_controllers/APIUnifyMaster_controller.py:APIUnifyMaster_graph",
+    "apis_input_output_mapper": "./langgraph_controllers/APIsImputOutputMapper_controller.py:APIsImputOutputMapper_graph",
+    "doc_rag_optimizer": "./langgraph_controllers/DocRAGOptimizer_controller.py:DocRAGOptimizer_graph",
+    "hotmart_api_master": "./langgraph_controllers/HotmartAPIMaster_controller.py:HotmartAPIMaster_graph",
+    "kiwify_api_master": "./langgraph_controllers/KiwifyAPIMaster_controller.py:KiwifyAPIMaster_graph",
+    "payt_api_master": "./langgraph_controllers/PaytAPIMaster_controller.py:PaytAPIMaster_graph",
+    "perfectpay_api_master": "./langgraph_controllers/PerfectpayAPIMaster_controller.py:PerfectpayAPIMaster_graph",
+    "conversion_catalyst": "./langgraph_controllers/conversion_catalyst_controller.py:conversion_catalyst_graph",
+    "metaphor_architect": "./langgraph_controllers/metaphor_architect_controller.py:metaphor_architect_graph",
+    "neurohook_ultra": "./langgraph_controllers/neurohook_ultra_controller.py:neurohook_ultra_graph",
+    "pain_detector": "./langgraph_controllers/pain_detector_controller.py:pain_detector_graph",
+    "paradigm_architect": "./langgraph_controllers/paradigm_architect_controller.py:paradigm_architect_graph",
+    "retention_architect": "./langgraph_controllers/retention_architect_controller.py:retention_architect_graph"
+  }
+}

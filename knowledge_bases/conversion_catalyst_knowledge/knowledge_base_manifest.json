@@ -1,0 +1,19 @@
+{
+  "knowledge_base_name": "conversion_catalyst_knowledge",
+  "type": "domain_knowledge_base",
+  "migration_status": "migrated",
+  "migration_date": "2025-06-25T08:35:18.563218",
+  "total_files": 10,
+  "subdirectories": [
+    "psicologia_comportamental",
+    "neurociencia_decisao"
+  ],
+  "root_files": [
+    "summary.md"
+  ],
+  "specialization": "Neurociência da decisão e psicologia comportamental",
+  "next_phase": "rag_optimization",
+  "target_vector_db": "supabase",
+  "chunking_strategy": "semantic",
+  "embedding_model": "text-embedding-3-large"
+}

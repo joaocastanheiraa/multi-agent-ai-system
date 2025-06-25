@@ -1,0 +1,18 @@
+{
+  "migration_type": "Copywriters Main Agents",
+  "start_time": "2025-06-25T08:28:59.723688",
+  "agents_migrated": [
+    "conversion_catalyst",
+    "neurohook_ultra",
+    "pain_detector",
+    "paradigm_architect",
+    "metaphor_architect",
+    "retention_architect"
+  ],
+  "files_migrated": 83,
+  "errors": [],
+  "end_time": "2025-06-25T08:28:59.754825",
+  "success": true,
+  "agents_total": 6,
+  "agents_migrated_count": 6
+}

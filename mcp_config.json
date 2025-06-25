@@ -1,0 +1,22 @@
+{
+    "servers": {
+        "filesystem": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+            "transport": "stdio"
+        },
+        "brave-search": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+            "transport": "stdio",
+            "env": {
+                "BRAVE_API_KEY": "sua-chave-brave-aqui"
+            }
+        },
+        "custom": {
+            "command": "python",
+            "args": ["mcp_integration/custom_mcp_server.py"],
+            "transport": "stdio"
+        }
+    }
+}

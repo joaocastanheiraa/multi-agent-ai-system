@@ -1,0 +1,15 @@
+{
+  "name": "high_performance_agent",
+  "model": "gpt-4o-mini",
+  "temperature": 0.3,
+  "max_tokens": 1500,
+  "timeout": 30,
+  "enable_memory": true,
+  "memory_type": "summary",
+  "enable_cache": true,
+  "cache_ttl": 7200,
+  "log_level": "INFO",
+  "enable_streaming": true,
+  "max_retries": 5,
+  "retry_delay": 0.5
+} 

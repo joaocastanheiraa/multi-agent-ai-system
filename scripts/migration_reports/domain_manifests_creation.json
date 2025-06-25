@@ -1,0 +1,14 @@
+{
+  "task": "Create Domain Manifests",
+  "start_time": "2025-06-25T10:23:58.956306",
+  "manifests_created": [
+    "copywriters",
+    "apis",
+    "analytics",
+    "knowledge"
+  ],
+  "errors": [],
+  "end_time": "2025-06-25T10:23:58.957931",
+  "success": true,
+  "manifests_count": 4
+}

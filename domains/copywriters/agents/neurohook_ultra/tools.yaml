@@ -1,0 +1,19 @@
+tools:
+  knowledge_base:
+    config:
+      embedding_model: text-embedding-ada-002
+      provider: supabase
+      similarity_threshold: 0.8
+    description: Tool knowledge_base para neurohook_ultra
+    enabled: true
+  text_analysis:
+    config: {}
+    description: Tool text_analysis para neurohook_ultra
+    enabled: true
+  web_search:
+    config:
+      api_key: ${SERPER_API_KEY}
+      max_results: 10
+      provider: serper
+    description: Tool web_search para neurohook_ultra
+    enabled: true

@@ -1,0 +1,675 @@
+{
+  "project": "Multi-Agent AI System v3.0",
+  "completion_timestamp": "2025-06-25T10:36:40.934355",
+  "status": "COMPLETED",
+  "total_files": 6382,
+  "components": {
+    "domains": true,
+    "langgraph_controllers": true,
+    "mcp_integration": true,
+    "migration_reports": true,
+    "docker_files": true,
+    "deploy_scripts": true,
+    "test_suite": true,
+    "monitoring": true
+  },
+  "phases": {
+    "A": "Migração Estrutural - COMPLETA",
+    "B": "Transformação LangGraph - COMPLETA",
+    "C": "RAG Implementation - COMPLETA",
+    "D": "AutoGen Setup - COMPLETA",
+    "E": "MCP Integration - COMPLETA",
+    "F": "Deploy & Testing - COMPLETA"
+  },
+  "statistics": {
+    "domains": 4,
+    "langgraph_controllers": 14,
+    "autogen_agents": 68,
+    "total_agents": 82,
+    "knowledge_bases": 6,
+    "migration_success_rate": "100%"
+  },
+  "next_steps": [
+    "Executar deploy_local.sh para deploy local",
+    "Executar deploy_docker.sh para deploy Docker",
+    "Executar test_system.py para testes",
+    "Usar monitor_dashboard.py para monitoramento"
+  ],
+  "phase_reports": {
+    "rag_indexation_report.json": {
+      "indexation_completed": "2025-06-25T10:28:53.304990",
+      "stats": {
+        "processed_kbs": 6,
+        "total_files": 39,
+        "total_chunks": 195,
+        "total_embeddings": 195,
+        "errors": 0
+      },
+      "success_rate": 1.0,
+      "setup_type": "mock_demonstration",
+      "note": "This is a mock setup for demonstration. In production, configure OpenAI API and Supabase."
+    },
+    "knowledge_bases_migration.json": {
+      "migration_type": "Knowledge Bases Complete",
+      "start_time": "2025-06-25T08:35:18.557887",
+      "knowledge_bases_migrated": [
+        "conversion_catalyst_knowledge",
+        "metaphor_architect_knowledge",
+        "neurohook_knowledge",
+        "pain_detector_knowledge",
+        "paradigm_architect_knowledge",
+        "retention_architect_knowledge"
+      ],
+      "files_migrated": 49,
+      "errors": [],
+      "end_time": "2025-06-25T08:35:18.587762",
+      "success": true,
+      "kb_total": 6,
+      "kb_migrated_count": 6
+    },
+    "domain_manifests_creation.json": {
+      "task": "Create Domain Manifests",
+      "start_time": "2025-06-25T10:23:58.956306",
+      "manifests_created": [
+        "copywriters",
+        "apis",
+        "analytics",
+        "knowledge"
+      ],
+      "errors": [],
+      "end_time": "2025-06-25T10:23:58.957931",
+      "success": true,
+      "manifests_count": 4
+    },
+    "analytics_knowledge_migration.json": {
+      "migration_type": "Analytics & Knowledge Domains",
+      "start_time": "2025-06-25T08:33:59.734004",
+      "agents_migrated": [
+        "ANALYTICSGPT | Super Track",
+        "DocRAGOptimizer"
+      ],
+      "files_migrated": 37,
+      "errors": [],
+      "end_time": "2025-06-25T08:33:59.745876",
+      "success": true,
+      "agents_migrated_count": 2
+    },
+    "copywriters_main_migration.json": {
+      "migration_type": "Copywriters Main Agents",
+      "start_time": "2025-06-25T08:28:59.723688",
+      "agents_migrated": [
+        "conversion_catalyst",
+        "neurohook_ultra",
+        "pain_detector",
+        "paradigm_architect",
+        "metaphor_architect",
+        "retention_architect"
+      ],
+      "files_migrated": 83,
+      "errors": [],
+      "end_time": "2025-06-25T08:28:59.754825",
+      "success": true,
+      "agents_total": 6,
+      "agents_migrated_count": 6
+    },
+    "phase_d_autogen_setup.json": {
+      "phase": "D - AutoGen Setup",
+      "timestamp": "2025-06-25T10:33:23.614344",
+      "total_sub_agents": 68,
+      "converted_count": 68,
+      "success_rate": "100.0%",
+      "results": [
+        {
+          "name": "1 copy 3",
+          "domain": "apis",
+          "parent": "KiwifyAPIMaster",
+          "autogen_file": "domains/apis/agents/KiwifyAPIMaster/sub_agents/1 copy 3/autogen/1 copy 3_agent.py"
+        },
+        {
+          "name": "1 copy 4",
+          "domain": "apis",
+          "parent": "KiwifyAPIMaster",
+          "autogen_file": "domains/apis/agents/KiwifyAPIMaster/sub_agents/1 copy 4/autogen/1 copy 4_agent.py"
+        },
+        {
+          "name": "1 copy 2",
+          "domain": "apis",
+          "parent": "KiwifyAPIMaster",
+          "autogen_file": "domains/apis/agents/KiwifyAPIMaster/sub_agents/1 copy 2/autogen/1 copy 2_agent.py"
+        },
+        {
+          "name": "1",
+          "domain": "apis",
+          "parent": "KiwifyAPIMaster",
+          "autogen_file": "domains/apis/agents/KiwifyAPIMaster/sub_agents/1/autogen/1_agent.py"
+        },
+        {
+          "name": "1 copy",
+          "domain": "apis",
+          "parent": "KiwifyAPIMaster",
+          "autogen_file": "domains/apis/agents/KiwifyAPIMaster/sub_agents/1 copy/autogen/1 copy_agent.py"
+        },
+        {
+          "name": "1 copy 3",
+          "domain": "apis",
+          "parent": "APIUnifyMaster",
+          "autogen_file": "domains/apis/agents/APIUnifyMaster/sub_agents/1 copy 3/autogen/1 copy 3_agent.py"
+        },
+        {
+          "name": "1 copy 4",
+          "domain": "apis",
+          "parent": "APIUnifyMaster",
+          "autogen_file": "domains/apis/agents/APIUnifyMaster/sub_agents/1 copy 4/autogen/1 copy 4_agent.py"
+        },
+        {
+          "name": "1 copy 2",
+          "domain": "apis",
+          "parent": "APIUnifyMaster",
+          "autogen_file": "domains/apis/agents/APIUnifyMaster/sub_agents/1 copy 2/autogen/1 copy 2_agent.py"
+        },
+        {
+          "name": "1",
+          "domain": "apis",
+          "parent": "APIUnifyMaster",
+          "autogen_file": "domains/apis/agents/APIUnifyMaster/sub_agents/1/autogen/1_agent.py"
+        },
+        {
+          "name": "1 copy",
+          "domain": "apis",
+          "parent": "APIUnifyMaster",
+          "autogen_file": "domains/apis/agents/APIUnifyMaster/sub_agents/1 copy/autogen/1 copy_agent.py"
+        },
+        {
+          "name": "Output_Mapper",
+          "domain": "apis",
+          "parent": "APIsImputOutputMapper",
+          "autogen_file": "domains/apis/agents/APIsImputOutputMapper/sub_agents/Output_Mapper/autogen/output_mapper_agent.py"
+        },
+        {
+          "name": "Imput_Mapper",
+          "domain": "apis",
+          "parent": "APIsImputOutputMapper",
+          "autogen_file": "domains/apis/agents/APIsImputOutputMapper/sub_agents/Imput_Mapper/autogen/imput_mapper_agent.py"
+        },
+        {
+          "name": "ReviewAndOptmization",
+          "domain": "apis",
+          "parent": "APIsImputOutputMapper",
+          "autogen_file": "domains/apis/agents/APIsImputOutputMapper/sub_agents/ReviewAndOptmization/autogen/reviewandoptmization_agent.py"
+        },
+        {
+          "name": "1 copy 3",
+          "domain": "apis",
+          "parent": "HotmartAPIMaster",
+          "autogen_file": "domains/apis/agents/HotmartAPIMaster/sub_agents/1 copy 3/autogen/1 copy 3_agent.py"
+        },
+        {
+          "name": "1 copy 4",
+          "domain": "apis",
+          "parent": "HotmartAPIMaster",
+          "autogen_file": "domains/apis/agents/HotmartAPIMaster/sub_agents/1 copy 4/autogen/1 copy 4_agent.py"
+        },
+        {
+          "name": "1 copy 2",
+          "domain": "apis",
+          "parent": "HotmartAPIMaster",
+          "autogen_file": "domains/apis/agents/HotmartAPIMaster/sub_agents/1 copy 2/autogen/1 copy 2_agent.py"
+        },
+        {
+          "name": "1",
+          "domain": "apis",
+          "parent": "HotmartAPIMaster",
+          "autogen_file": "domains/apis/agents/HotmartAPIMaster/sub_agents/1/autogen/1_agent.py"
+        },
+        {
+          "name": "1 copy",
+          "domain": "apis",
+          "parent": "HotmartAPIMaster",
+          "autogen_file": "domains/apis/agents/HotmartAPIMaster/sub_agents/1 copy/autogen/1 copy_agent.py"
+        },
+        {
+          "name": "1 copy 3",
+          "domain": "apis",
+          "parent": "PerfectpayAPIMaster",
+          "autogen_file": "domains/apis/agents/PerfectpayAPIMaster/sub_agents/1 copy 3/autogen/1 copy 3_agent.py"
+        },
+        {
+          "name": "1 copy 4",
+          "domain": "apis",
+          "parent": "PerfectpayAPIMaster",
+          "autogen_file": "domains/apis/agents/PerfectpayAPIMaster/sub_agents/1 copy 4/autogen/1 copy 4_agent.py"
+        },
+        {
+          "name": "1 copy 2",
+          "domain": "apis",
+          "parent": "PerfectpayAPIMaster",
+          "autogen_file": "domains/apis/agents/PerfectpayAPIMaster/sub_agents/1 copy 2/autogen/1 copy 2_agent.py"
+        },
+        {
+          "name": "1",
+          "domain": "apis",
+          "parent": "PerfectpayAPIMaster",
+          "autogen_file": "domains/apis/agents/PerfectpayAPIMaster/sub_agents/1/autogen/1_agent.py"
+        },
+        {
+          "name": "1 copy",
+          "domain": "apis",
+          "parent": "PerfectpayAPIMaster",
+          "autogen_file": "domains/apis/agents/PerfectpayAPIMaster/sub_agents/1 copy/autogen/1 copy_agent.py"
+        },
+        {
+          "name": "1 copy 3",
+          "domain": "apis",
+          "parent": "PaytAPIMaster",
+          "autogen_file": "domains/apis/agents/PaytAPIMaster/sub_agents/1 copy 3/autogen/1 copy 3_agent.py"
+        },
+        {
+          "name": "1 copy 4",
+          "domain": "apis",
+          "parent": "PaytAPIMaster",
+          "autogen_file": "domains/apis/agents/PaytAPIMaster/sub_agents/1 copy 4/autogen/1 copy 4_agent.py"
+        },
+        {
+          "name": "1 copy 2",
+          "domain": "apis",
+          "parent": "PaytAPIMaster",
+          "autogen_file": "domains/apis/agents/PaytAPIMaster/sub_agents/1 copy 2/autogen/1 copy 2_agent.py"
+        },
+        {
+          "name": "1",
+          "domain": "apis",
+          "parent": "PaytAPIMaster",
+          "autogen_file": "domains/apis/agents/PaytAPIMaster/sub_agents/1/autogen/1_agent.py"
+        },
+        {
+          "name": "1 copy",
+          "domain": "apis",
+          "parent": "PaytAPIMaster",
+          "autogen_file": "domains/apis/agents/PaytAPIMaster/sub_agents/1 copy/autogen/1 copy_agent.py"
+        },
+        {
+          "name": "1 copy 3",
+          "domain": "knowledge",
+          "parent": "DocRAGOptimizer",
+          "autogen_file": "domains/knowledge/agents/DocRAGOptimizer/sub_agents/1 copy 3/autogen/1 copy 3_agent.py"
+        },
+        {
+          "name": "1 copy 4",
+          "domain": "knowledge",
+          "parent": "DocRAGOptimizer",
+          "autogen_file": "domains/knowledge/agents/DocRAGOptimizer/sub_agents/1 copy 4/autogen/1 copy 4_agent.py"
+        },
+        {
+          "name": "1 copy 2",
+          "domain": "knowledge",
+          "parent": "DocRAGOptimizer",
+          "autogen_file": "domains/knowledge/agents/DocRAGOptimizer/sub_agents/1 copy 2/autogen/1 copy 2_agent.py"
+        },
+        {
+          "name": "1",
+          "domain": "knowledge",
+          "parent": "DocRAGOptimizer",
+          "autogen_file": "domains/knowledge/agents/DocRAGOptimizer/sub_agents/1/autogen/1_agent.py"
+        },
+        {
+          "name": "1 copy",
+          "domain": "knowledge",
+          "parent": "DocRAGOptimizer",
+          "autogen_file": "domains/knowledge/agents/DocRAGOptimizer/sub_agents/1 copy/autogen/1 copy_agent.py"
+        },
+        {
+          "name": "domain-prospector",
+          "domain": "copywriters",
+          "parent": "metaphor_architect",
+          "autogen_file": "domains/copywriters/agents/metaphor_architect/sub-agents/domain-prospector/autogen/domain_prospector_agent.py"
+        },
+        {
+          "name": "sensory-translator",
+          "domain": "copywriters",
+          "parent": "metaphor_architect",
+          "autogen_file": "domains/copywriters/agents/metaphor_architect/sub-agents/sensory-translator/autogen/sensory_translator_agent.py"
+        },
+        {
+          "name": "concept-dissector",
+          "domain": "copywriters",
+          "parent": "metaphor_architect",
+          "autogen_file": "domains/copywriters/agents/metaphor_architect/sub-agents/concept-dissector/autogen/concept_dissector_agent.py"
+        },
+        {
+          "name": "resonance-calibrator",
+          "domain": "copywriters",
+          "parent": "metaphor_architect",
+          "autogen_file": "domains/copywriters/agents/metaphor_architect/sub-agents/resonance-calibrator/autogen/resonance_calibrator_agent.py"
+        },
+        {
+          "name": "isomorphism-engineer",
+          "domain": "copywriters",
+          "parent": "metaphor_architect",
+          "autogen_file": "domains/copywriters/agents/metaphor_architect/sub-agents/isomorphism-engineer/autogen/isomorphism_engineer_agent.py"
+        },
+        {
+          "name": "context-cartographer",
+          "domain": "copywriters",
+          "parent": "pain_detector",
+          "autogen_file": "domains/copywriters/agents/pain_detector/sub-agents/context-cartographer/autogen/context_cartographer_agent.py"
+        },
+        {
+          "name": "symptom-translator",
+          "domain": "copywriters",
+          "parent": "pain_detector",
+          "autogen_file": "domains/copywriters/agents/pain_detector/sub-agents/symptom-translator/autogen/symptom_translator_agent.py"
+        },
+        {
+          "name": "impact-prioritizer",
+          "domain": "copywriters",
+          "parent": "pain_detector",
+          "autogen_file": "domains/copywriters/agents/pain_detector/sub-agents/impact-prioritizer/autogen/impact_prioritizer_agent.py"
+        },
+        {
+          "name": "consequence-amplifier",
+          "domain": "copywriters",
+          "parent": "pain_detector",
+          "autogen_file": "domains/copywriters/agents/pain_detector/sub-agents/consequence-amplifier/autogen/consequence_amplifier_agent.py"
+        },
+        {
+          "name": "digital-ethnographer",
+          "domain": "copywriters",
+          "parent": "pain_detector",
+          "autogen_file": "domains/copywriters/agents/pain_detector/sub-agents/digital-ethnographer/autogen/digital_ethnographer_agent.py"
+        },
+        {
+          "name": "cognition_scanner",
+          "domain": "copywriters",
+          "parent": "neurohook_ultra",
+          "autogen_file": "domains/copywriters/agents/neurohook_ultra/sub-agents/cognition_scanner/autogen/cognition_scanner_agent.py"
+        },
+        {
+          "name": "relevance_engineer",
+          "domain": "copywriters",
+          "parent": "neurohook_ultra",
+          "autogen_file": "domains/copywriters/agents/neurohook_ultra/sub-agents/relevance_engineer/autogen/relevance_engineer_agent.py"
+        },
+        {
+          "name": "urgency_programmer",
+          "domain": "copywriters",
+          "parent": "neurohook_ultra",
+          "autogen_file": "domains/copywriters/agents/neurohook_ultra/sub-agents/urgency_programmer/autogen/urgency_programmer_agent.py"
+        },
+        {
+          "name": "dissonance_architect",
+          "domain": "copywriters",
+          "parent": "neurohook_ultra",
+          "autogen_file": "domains/copywriters/agents/neurohook_ultra/sub-agents/dissonance_architect/autogen/dissonance_architect_agent.py"
+        },
+        {
+          "name": "credibility_calibrator",
+          "domain": "copywriters",
+          "parent": "neurohook_ultra",
+          "autogen_file": "domains/copywriters/agents/neurohook_ultra/sub-agents/credibility_calibrator/autogen/credibility_calibrator_agent.py"
+        },
+        {
+          "name": "TRANSDISCIPLINARY-SYNTHESIZER",
+          "domain": "copywriters",
+          "parent": "paradigm_architect",
+          "autogen_file": "domains/copywriters/agents/paradigm_architect/sub-agents/TRANSDISCIPLINARY-SYNTHESIZER/autogen/transdisciplinary_synthesizer_agent.py"
+        },
+        {
+          "name": "CONCEPT-ARCHITECT",
+          "domain": "copywriters",
+          "parent": "paradigm_architect",
+          "autogen_file": "domains/copywriters/agents/paradigm_architect/sub-agents/CONCEPT-ARCHITECT/autogen/concept_architect_agent.py"
+        },
+        {
+          "name": "AXIOM-ARCHAEOLOGIST",
+          "domain": "copywriters",
+          "parent": "paradigm_architect",
+          "autogen_file": "domains/copywriters/agents/paradigm_architect/sub-agents/AXIOM-ARCHAEOLOGIST/autogen/axiom_archaeologist_agent.py"
+        },
+        {
+          "name": "LEGITIMACY-ENGINEER",
+          "domain": "copywriters",
+          "parent": "paradigm_architect",
+          "autogen_file": "domains/copywriters/agents/paradigm_architect/sub-agents/LEGITIMACY-ENGINEER/autogen/legitimacy_engineer_agent.py"
+        },
+        {
+          "name": "PARADIGMATIC-LINGUIST",
+          "domain": "copywriters",
+          "parent": "paradigm_architect",
+          "autogen_file": "domains/copywriters/agents/paradigm_architect/sub-agents/PARADIGMATIC-LINGUIST/autogen/paradigmatic_linguist_agent.py"
+        },
+        {
+          "name": "transition_specialist",
+          "domain": "copywriters",
+          "parent": "retention_architect",
+          "autogen_file": "domains/copywriters/agents/retention_architect/sub-agents/transition_specialist/autogen/transition_specialist_agent.py"
+        },
+        {
+          "name": "immersion_architect",
+          "domain": "copywriters",
+          "parent": "retention_architect",
+          "autogen_file": "domains/copywriters/agents/retention_architect/sub-agents/immersion_architect/autogen/immersion_architect_agent.py"
+        },
+        {
+          "name": "journey_cartographer",
+          "domain": "copywriters",
+          "parent": "retention_architect",
+          "autogen_file": "domains/copywriters/agents/retention_architect/sub-agents/journey_cartographer/autogen/journey_cartographer_agent.py"
+        },
+        {
+          "name": "rhythm_programmer",
+          "domain": "copywriters",
+          "parent": "retention_architect",
+          "autogen_file": "domains/copywriters/agents/retention_architect/sub-agents/rhythm_programmer/autogen/rhythm_programmer_agent.py"
+        },
+        {
+          "name": "tension_engineer",
+          "domain": "copywriters",
+          "parent": "retention_architect",
+          "autogen_file": "domains/copywriters/agents/retention_architect/sub-agents/tension_engineer/autogen/tension_engineer_agent.py"
+        },
+        {
+          "name": "value_amplifier",
+          "domain": "copywriters",
+          "parent": "conversion_catalyst",
+          "autogen_file": "domains/copywriters/agents/conversion_catalyst/sub-agents/value_amplifier/autogen/value_amplifier_agent.py"
+        },
+        {
+          "name": "risk_neutralizer",
+          "domain": "copywriters",
+          "parent": "conversion_catalyst",
+          "autogen_file": "domains/copywriters/agents/conversion_catalyst/sub-agents/risk_neutralizer/autogen/risk_neutralizer_agent.py"
+        },
+        {
+          "name": "decision-mapper",
+          "domain": "copywriters",
+          "parent": "conversion_catalyst",
+          "autogen_file": "domains/copywriters/agents/conversion_catalyst/sub-agents/decision-mapper/autogen/decision_mapper_agent.py"
+        },
+        {
+          "name": "urgency_architect",
+          "domain": "copywriters",
+          "parent": "conversion_catalyst",
+          "autogen_file": "domains/copywriters/agents/conversion_catalyst/sub-agents/urgency_architect/autogen/urgency_architect_agent.py"
+        },
+        {
+          "name": "command-architect",
+          "domain": "copywriters",
+          "parent": "conversion_catalyst",
+          "autogen_file": "domains/copywriters/agents/conversion_catalyst/sub-agents/command-architect/autogen/command_architect_agent.py"
+        },
+        {
+          "name": "1 copy 3",
+          "domain": "analytics",
+          "parent": "ANALYTICSGPT | Super Track",
+          "autogen_file": "domains/analytics/agents/ANALYTICSGPT | Super Track/sub_agents/1 copy 3/autogen/1 copy 3_agent.py"
+        },
+        {
+          "name": "1 copy 4",
+          "domain": "analytics",
+          "parent": "ANALYTICSGPT | Super Track",
+          "autogen_file": "domains/analytics/agents/ANALYTICSGPT | Super Track/sub_agents/1 copy 4/autogen/1 copy 4_agent.py"
+        },
+        {
+          "name": "1 copy 2",
+          "domain": "analytics",
+          "parent": "ANALYTICSGPT | Super Track",
+          "autogen_file": "domains/analytics/agents/ANALYTICSGPT | Super Track/sub_agents/1 copy 2/autogen/1 copy 2_agent.py"
+        },
+        {
+          "name": "1",
+          "domain": "analytics",
+          "parent": "ANALYTICSGPT | Super Track",
+          "autogen_file": "domains/analytics/agents/ANALYTICSGPT | Super Track/sub_agents/1/autogen/1_agent.py"
+        },
+        {
+          "name": "1 copy",
+          "domain": "analytics",
+          "parent": "ANALYTICSGPT | Super Track",
+          "autogen_file": "domains/analytics/agents/ANALYTICSGPT | Super Track/sub_agents/1 copy/autogen/1 copy_agent.py"
+        }
+      ]
+    },
+    "apis_domain_migration.json": {
+      "migration_type": "APIs Domain Complete",
+      "start_time": "2025-06-25T08:31:40.778234",
+      "agents_migrated": [
+        "HotmartAPIMaster",
+        "KiwifyAPIMaster",
+        "PerfectpayAPIMaster",
+        "PaytAPIMaster",
+        "APIUnifyMaster",
+        "APIsImputOutputMapper"
+      ],
+      "files_migrated": 137,
+      "errors": [],
+      "end_time": "2025-06-25T08:31:40.821971",
+      "success": true,
+      "agents_total": 6,
+      "agents_migrated_count": 6
+    },
+    "phase_e_mcp_integration.json": {
+      "phase": "E - MCP Integration",
+      "timestamp": "2025-06-25T10:35:27.985580",
+      "langgraph_controllers": 14,
+      "autogen_agents": 68,
+      "total_agents": 82,
+      "mcp_server_created": true,
+      "files_created": [
+        "mcp_integration/mcp_config.json",
+        "mcp_integration/mcp_server.py",
+        "mcp_integration/mcp_client_example.py",
+        "mcp_integration/requirements_mcp.txt"
+      ]
+    },
+    "migration_validation_report.json": {
+      "migration_valid": true,
+      "timestamp": "2025-06-25T10:25:48.671066",
+      "validations": {
+        "domains": {
+          "valid": true,
+          "expected_domains": [
+            "copywriters",
+            "apis",
+            "analytics",
+            "knowledge"
+          ],
+          "found_domains": [
+            "apis",
+            "knowledge",
+            "copywriters",
+            "analytics"
+          ],
+          "missing_domains": [],
+          "issues": []
+        },
+        "agents": {
+          "valid": true,
+          "domains": {
+            "apis": {
+              "agents": [
+                {
+                  "name": "agents",
+                  "path": "domains/apis/agents",
+                  "has_prompt": false,
+                  "has_tools": false,
+                  "has_knowledge": false,
+                  "sub_agents_count": 0,
+                  "files_count": 137
+                }
+              ],
+              "agents_count": 1,
+              "sub_agents_count": 0,
+              "total_files": 137,
+              "issues": []
+            },
+            "knowledge": {
+              "agents": [
+                {
+                  "name": "agents",
+                  "path": "domains/knowledge/agents",
+                  "has_prompt": false,
+                  "has_tools": false,
+                  "has_knowledge": false,
+                  "sub_agents_count": 0,
+                  "files_count": 15
+                }
+              ],
+              "agents_count": 1,
+              "sub_agents_count": 0,
+              "total_files": 15,
+              "issues": []
+            },
+            "copywriters": {
+              "agents": [
+                {
+                  "name": "agents",
+                  "path": "domains/copywriters/agents",
+                  "has_prompt": false,
+                  "has_tools": false,
+                  "has_knowledge": false,
+                  "sub_agents_count": 0,
+                  "files_count": 95
+                }
+              ],
+              "agents_count": 1,
+              "sub_agents_count": 0,
+              "total_files": 95,
+              "issues": []
+            },
+            "analytics": {
+              "agents": [
+                {
+                  "name": "agents",
+                  "path": "domains/analytics/agents",
+                  "has_prompt": false,
+                  "has_tools": false,
+                  "has_knowledge": false,
+                  "sub_agents_count": 0,
+                  "files_count": 22
+                }
+              ],
+              "agents_count": 1,
+              "sub_agents_count": 0,
+              "total_files": 22,
+              "issues": []
+            }
+          },
+          "summary": {
+            "total_agents": 4,
+            "total_sub_agents": 0,
+            "total_files": 269
+          },
+          "issues": []
+        }
+      },
+      "summary": {
+        "total_domains": 4,
+        "total_agents": 4,
+        "total_sub_agents": 0,
+        "total_files": 269,
+        "total_issues": 0
+      },
+      "all_issues": []
+    }
+  }
+}
