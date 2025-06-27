@@ -70,7 +70,7 @@ services:
       - ./data:/app/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+              test: ["CMD", "curl", "-f", "http://localhost:8001/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -135,9 +135,9 @@ python mcp_server.py &
 MCP_PID=$!
 
 echo "✅ Servidor MCP iniciado (PID: $MCP_PID)"
-echo "🌐 Acesse: http://localhost:8000"
-echo "📊 Agents: http://localhost:8000/agents"
-echo "🔧 Tools: http://localhost:8000/tools"
+echo "🌐 Acesse: http://localhost:8001"
+echo "📊 Agents: http://localhost:8001/agents"
+echo "🔧 Tools: http://localhost:8001/tools"
 
 # Salvar PID
 echo $MCP_PID > mcp_server.pid
@@ -178,7 +178,7 @@ echo "📊 Verificando status..."
 docker-compose ps
 
 echo "✅ Deploy concluído!"
-echo "🌐 Acesse: http://localhost:8000"
+echo "🌐 Acesse: http://localhost:8001"
 echo "📊 Logs: docker-compose logs -f"
 echo "🛑 Para parar: docker-compose down"
 '''
@@ -206,7 +206,7 @@ import time
 from datetime import datetime
 
 class SystemTester:
-    def __init__(self, base_url="http://localhost:8000"):
+    def __init__(self, base_url="http://localhost:8001"):
         self.base_url = base_url
         self.results = []
     
@@ -389,7 +389,7 @@ async def monitor_system():
     print("📊 DASHBOARD DE MONITORAMENTO")
     print("=" * 50)
     
-    base_url = "http://localhost:8000"
+    base_url = "http://localhost:8001"
     
     while True:
         try:

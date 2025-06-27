@@ -1,0 +1,15 @@
+{
+  "backup_timestamp": "20250627_144503",
+  "backup_date": "2025-06-27T14:45:03.688737",
+  "system_version": "3.0",
+  "backup_type": "organized_structure",
+  "description": "Backup da estrutura organizada e limpa pós-cleanup",
+  "categories": [
+    "core_system",
+    "domains_and_agents",
+    "configuration",
+    "documentation",
+    "infrastructure"
+  ],
+  "total_size": 7496455
+}

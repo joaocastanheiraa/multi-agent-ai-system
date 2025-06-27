@@ -166,7 +166,7 @@ if [ "$VALIDATION_PASSED" = true ]; then
     echo "🌐 URLs que estarão disponíveis:"
     echo "   AutoGen Studio:    http://localhost:8081"
     echo "   LangGraph Studio:  https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:8082"
-    echo "   MCP Server API:    http://localhost:8000"
+    echo "   MCP Server API:    http://localhost:8001"
     exit 0
 else
     echo "❌ VALIDAÇÃO FALHOU! Corrija os problemas acima antes de continuar."

@@ -1,0 +1,31 @@
+tools:
+  ab_tester:
+    config: {}
+    description: Tool ab_tester para conversion_catalyst
+    enabled: true
+  conversion_optimizer:
+    config: {}
+    description: Tool conversion_optimizer para conversion_catalyst
+    enabled: true
+  cta_generator:
+    config: {}
+    description: Tool cta_generator para conversion_catalyst
+    enabled: true
+  knowledge_base:
+    config:
+      embedding_model: text-embedding-ada-002
+      provider: supabase
+      similarity_threshold: 0.8
+    description: Tool knowledge_base para conversion_catalyst
+    enabled: true
+  text_analysis:
+    config: {}
+    description: Tool text_analysis para conversion_catalyst
+    enabled: true
+  web_search:
+    config:
+      api_key: ${SERPER_API_KEY}
+      max_results: 10
+      provider: serper
+    description: Tool web_search para conversion_catalyst
+    enabled: true

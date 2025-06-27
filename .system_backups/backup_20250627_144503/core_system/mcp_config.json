@@ -1,0 +1,664 @@
+{
+  "version": "1.0",
+  "name": "multi-agent-ai-system-mcp",
+  "description": "MCP Integration for Multi-Agent AI System v3.0",
+  "agents": {
+    "langgraph_controllers": [
+      {
+        "name": "PerfectpayAPIMaster",
+        "type": "langgraph",
+        "file": "langgraph_controllers/PerfectpayAPIMaster_controller.py",
+        "endpoint": "/langgraph/PerfectpayAPIMaster"
+      },
+      {
+        "name": "HotmartAPIMaster",
+        "type": "langgraph",
+        "file": "langgraph_controllers/HotmartAPIMaster_controller.py",
+        "endpoint": "/langgraph/HotmartAPIMaster"
+      },
+      {
+        "name": "paradigm_architect",
+        "type": "langgraph",
+        "file": "langgraph_controllers/paradigm_architect_controller.py",
+        "endpoint": "/langgraph/paradigm_architect"
+      },
+      {
+        "name": "metaphor_architect",
+        "type": "langgraph",
+        "file": "langgraph_controllers/metaphor_architect_controller.py",
+        "endpoint": "/langgraph/metaphor_architect"
+      },
+      {
+        "name": "neurohook_ultra",
+        "type": "langgraph",
+        "file": "langgraph_controllers/neurohook_ultra_controller.py",
+        "endpoint": "/langgraph/neurohook_ultra"
+      },
+      {
+        "name": "pain_detector",
+        "type": "langgraph",
+        "file": "langgraph_controllers/pain_detector_controller.py",
+        "endpoint": "/langgraph/pain_detector"
+      },
+      {
+        "name": "retention_architect",
+        "type": "langgraph",
+        "file": "langgraph_controllers/retention_architect_controller.py",
+        "endpoint": "/langgraph/retention_architect"
+      },
+      {
+        "name": "conversion_catalyst",
+        "type": "langgraph",
+        "file": "langgraph_controllers/conversion_catalyst_controller.py",
+        "endpoint": "/langgraph/conversion_catalyst"
+      },
+      {
+        "name": "APIUnifyMaster",
+        "type": "langgraph",
+        "file": "langgraph_controllers/APIUnifyMaster_controller.py",
+        "endpoint": "/langgraph/APIUnifyMaster"
+      },
+      {
+        "name": "PaytAPIMaster",
+        "type": "langgraph",
+        "file": "langgraph_controllers/PaytAPIMaster_controller.py",
+        "endpoint": "/langgraph/PaytAPIMaster"
+      },
+      {
+        "name": "ANALYTICSGPT | Super Track",
+        "type": "langgraph",
+        "file": "langgraph_controllers/ANALYTICSGPT | Super Track_controller.py",
+        "endpoint": "/langgraph/ANALYTICSGPT | Super Track"
+      },
+      {
+        "name": "DocRAGOptimizer",
+        "type": "langgraph",
+        "file": "langgraph_controllers/DocRAGOptimizer_controller.py",
+        "endpoint": "/langgraph/DocRAGOptimizer"
+      },
+      {
+        "name": "KiwifyAPIMaster",
+        "type": "langgraph",
+        "file": "langgraph_controllers/KiwifyAPIMaster_controller.py",
+        "endpoint": "/langgraph/KiwifyAPIMaster"
+      },
+      {
+        "name": "APIsImputOutputMapper",
+        "type": "langgraph",
+        "file": "langgraph_controllers/APIsImputOutputMapper_controller.py",
+        "endpoint": "/langgraph/APIsImputOutputMapper"
+      }
+    ],
+    "autogen_agents": [
+      {
+        "name": "1 copy 3",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "KiwifyAPIMaster",
+        "file": "domains/apis/agents/KiwifyAPIMaster/sub_agents/1 copy 3/autogen/1 copy 3_agent.py",
+        "endpoint": "/autogen/apis/1 copy 3"
+      },
+      {
+        "name": "1 copy 4",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "KiwifyAPIMaster",
+        "file": "domains/apis/agents/KiwifyAPIMaster/sub_agents/1 copy 4/autogen/1 copy 4_agent.py",
+        "endpoint": "/autogen/apis/1 copy 4"
+      },
+      {
+        "name": "1 copy 2",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "KiwifyAPIMaster",
+        "file": "domains/apis/agents/KiwifyAPIMaster/sub_agents/1 copy 2/autogen/1 copy 2_agent.py",
+        "endpoint": "/autogen/apis/1 copy 2"
+      },
+      {
+        "name": "1",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "KiwifyAPIMaster",
+        "file": "domains/apis/agents/KiwifyAPIMaster/sub_agents/1/autogen/1_agent.py",
+        "endpoint": "/autogen/apis/1"
+      },
+      {
+        "name": "1 copy",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "KiwifyAPIMaster",
+        "file": "domains/apis/agents/KiwifyAPIMaster/sub_agents/1 copy/autogen/1 copy_agent.py",
+        "endpoint": "/autogen/apis/1 copy"
+      },
+      {
+        "name": "1 copy 3",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "APIUnifyMaster",
+        "file": "domains/apis/agents/APIUnifyMaster/sub_agents/1 copy 3/autogen/1 copy 3_agent.py",
+        "endpoint": "/autogen/apis/1 copy 3"
+      },
+      {
+        "name": "1 copy 4",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "APIUnifyMaster",
+        "file": "domains/apis/agents/APIUnifyMaster/sub_agents/1 copy 4/autogen/1 copy 4_agent.py",
+        "endpoint": "/autogen/apis/1 copy 4"
+      },
+      {
+        "name": "1 copy 2",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "APIUnifyMaster",
+        "file": "domains/apis/agents/APIUnifyMaster/sub_agents/1 copy 2/autogen/1 copy 2_agent.py",
+        "endpoint": "/autogen/apis/1 copy 2"
+      },
+      {
+        "name": "1",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "APIUnifyMaster",
+        "file": "domains/apis/agents/APIUnifyMaster/sub_agents/1/autogen/1_agent.py",
+        "endpoint": "/autogen/apis/1"
+      },
+      {
+        "name": "1 copy",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "APIUnifyMaster",
+        "file": "domains/apis/agents/APIUnifyMaster/sub_agents/1 copy/autogen/1 copy_agent.py",
+        "endpoint": "/autogen/apis/1 copy"
+      },
+      {
+        "name": "Output_Mapper",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "APIsImputOutputMapper",
+        "file": "domains/apis/agents/APIsImputOutputMapper/sub_agents/Output_Mapper/autogen/output_mapper_agent.py",
+        "endpoint": "/autogen/apis/Output_Mapper"
+      },
+      {
+        "name": "Imput_Mapper",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "APIsImputOutputMapper",
+        "file": "domains/apis/agents/APIsImputOutputMapper/sub_agents/Imput_Mapper/autogen/imput_mapper_agent.py",
+        "endpoint": "/autogen/apis/Imput_Mapper"
+      },
+      {
+        "name": "ReviewAndOptmization",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "APIsImputOutputMapper",
+        "file": "domains/apis/agents/APIsImputOutputMapper/sub_agents/ReviewAndOptmization/autogen/reviewandoptmization_agent.py",
+        "endpoint": "/autogen/apis/ReviewAndOptmization"
+      },
+      {
+        "name": "1 copy 3",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "HotmartAPIMaster",
+        "file": "domains/apis/agents/HotmartAPIMaster/sub_agents/1 copy 3/autogen/1 copy 3_agent.py",
+        "endpoint": "/autogen/apis/1 copy 3"
+      },
+      {
+        "name": "1 copy 4",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "HotmartAPIMaster",
+        "file": "domains/apis/agents/HotmartAPIMaster/sub_agents/1 copy 4/autogen/1 copy 4_agent.py",
+        "endpoint": "/autogen/apis/1 copy 4"
+      },
+      {
+        "name": "1 copy 2",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "HotmartAPIMaster",
+        "file": "domains/apis/agents/HotmartAPIMaster/sub_agents/1 copy 2/autogen/1 copy 2_agent.py",
+        "endpoint": "/autogen/apis/1 copy 2"
+      },
+      {
+        "name": "1",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "HotmartAPIMaster",
+        "file": "domains/apis/agents/HotmartAPIMaster/sub_agents/1/autogen/1_agent.py",
+        "endpoint": "/autogen/apis/1"
+      },
+      {
+        "name": "1 copy",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "HotmartAPIMaster",
+        "file": "domains/apis/agents/HotmartAPIMaster/sub_agents/1 copy/autogen/1 copy_agent.py",
+        "endpoint": "/autogen/apis/1 copy"
+      },
+      {
+        "name": "1 copy 3",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "PerfectpayAPIMaster",
+        "file": "domains/apis/agents/PerfectpayAPIMaster/sub_agents/1 copy 3/autogen/1 copy 3_agent.py",
+        "endpoint": "/autogen/apis/1 copy 3"
+      },
+      {
+        "name": "1 copy 4",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "PerfectpayAPIMaster",
+        "file": "domains/apis/agents/PerfectpayAPIMaster/sub_agents/1 copy 4/autogen/1 copy 4_agent.py",
+        "endpoint": "/autogen/apis/1 copy 4"
+      },
+      {
+        "name": "1 copy 2",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "PerfectpayAPIMaster",
+        "file": "domains/apis/agents/PerfectpayAPIMaster/sub_agents/1 copy 2/autogen/1 copy 2_agent.py",
+        "endpoint": "/autogen/apis/1 copy 2"
+      },
+      {
+        "name": "1",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "PerfectpayAPIMaster",
+        "file": "domains/apis/agents/PerfectpayAPIMaster/sub_agents/1/autogen/1_agent.py",
+        "endpoint": "/autogen/apis/1"
+      },
+      {
+        "name": "1 copy",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "PerfectpayAPIMaster",
+        "file": "domains/apis/agents/PerfectpayAPIMaster/sub_agents/1 copy/autogen/1 copy_agent.py",
+        "endpoint": "/autogen/apis/1 copy"
+      },
+      {
+        "name": "1 copy 3",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "PaytAPIMaster",
+        "file": "domains/apis/agents/PaytAPIMaster/sub_agents/1 copy 3/autogen/1 copy 3_agent.py",
+        "endpoint": "/autogen/apis/1 copy 3"
+      },
+      {
+        "name": "1 copy 4",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "PaytAPIMaster",
+        "file": "domains/apis/agents/PaytAPIMaster/sub_agents/1 copy 4/autogen/1 copy 4_agent.py",
+        "endpoint": "/autogen/apis/1 copy 4"
+      },
+      {
+        "name": "1 copy 2",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "PaytAPIMaster",
+        "file": "domains/apis/agents/PaytAPIMaster/sub_agents/1 copy 2/autogen/1 copy 2_agent.py",
+        "endpoint": "/autogen/apis/1 copy 2"
+      },
+      {
+        "name": "1",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "PaytAPIMaster",
+        "file": "domains/apis/agents/PaytAPIMaster/sub_agents/1/autogen/1_agent.py",
+        "endpoint": "/autogen/apis/1"
+      },
+      {
+        "name": "1 copy",
+        "type": "autogen",
+        "domain": "apis",
+        "parent": "PaytAPIMaster",
+        "file": "domains/apis/agents/PaytAPIMaster/sub_agents/1 copy/autogen/1 copy_agent.py",
+        "endpoint": "/autogen/apis/1 copy"
+      },
+      {
+        "name": "1 copy 3",
+        "type": "autogen",
+        "domain": "knowledge",
+        "parent": "DocRAGOptimizer",
+        "file": "domains/knowledge/agents/DocRAGOptimizer/sub_agents/1 copy 3/autogen/1 copy 3_agent.py",
+        "endpoint": "/autogen/knowledge/1 copy 3"
+      },
+      {
+        "name": "1 copy 4",
+        "type": "autogen",
+        "domain": "knowledge",
+        "parent": "DocRAGOptimizer",
+        "file": "domains/knowledge/agents/DocRAGOptimizer/sub_agents/1 copy 4/autogen/1 copy 4_agent.py",
+        "endpoint": "/autogen/knowledge/1 copy 4"
+      },
+      {
+        "name": "1 copy 2",
+        "type": "autogen",
+        "domain": "knowledge",
+        "parent": "DocRAGOptimizer",
+        "file": "domains/knowledge/agents/DocRAGOptimizer/sub_agents/1 copy 2/autogen/1 copy 2_agent.py",
+        "endpoint": "/autogen/knowledge/1 copy 2"
+      },
+      {
+        "name": "1",
+        "type": "autogen",
+        "domain": "knowledge",
+        "parent": "DocRAGOptimizer",
+        "file": "domains/knowledge/agents/DocRAGOptimizer/sub_agents/1/autogen/1_agent.py",
+        "endpoint": "/autogen/knowledge/1"
+      },
+      {
+        "name": "1 copy",
+        "type": "autogen",
+        "domain": "knowledge",
+        "parent": "DocRAGOptimizer",
+        "file": "domains/knowledge/agents/DocRAGOptimizer/sub_agents/1 copy/autogen/1 copy_agent.py",
+        "endpoint": "/autogen/knowledge/1 copy"
+      },
+      {
+        "name": "domain-prospector",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "metaphor_architect",
+        "file": "domains/copywriters/agents/metaphor_architect/sub-agents/domain-prospector/autogen/domain_prospector_agent.py",
+        "endpoint": "/autogen/copywriters/domain-prospector"
+      },
+      {
+        "name": "sensory-translator",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "metaphor_architect",
+        "file": "domains/copywriters/agents/metaphor_architect/sub-agents/sensory-translator/autogen/sensory_translator_agent.py",
+        "endpoint": "/autogen/copywriters/sensory-translator"
+      },
+      {
+        "name": "concept-dissector",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "metaphor_architect",
+        "file": "domains/copywriters/agents/metaphor_architect/sub-agents/concept-dissector/autogen/concept_dissector_agent.py",
+        "endpoint": "/autogen/copywriters/concept-dissector"
+      },
+      {
+        "name": "resonance-calibrator",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "metaphor_architect",
+        "file": "domains/copywriters/agents/metaphor_architect/sub-agents/resonance-calibrator/autogen/resonance_calibrator_agent.py",
+        "endpoint": "/autogen/copywriters/resonance-calibrator"
+      },
+      {
+        "name": "isomorphism-engineer",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "metaphor_architect",
+        "file": "domains/copywriters/agents/metaphor_architect/sub-agents/isomorphism-engineer/autogen/isomorphism_engineer_agent.py",
+        "endpoint": "/autogen/copywriters/isomorphism-engineer"
+      },
+      {
+        "name": "context-cartographer",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "pain_detector",
+        "file": "domains/copywriters/agents/pain_detector/sub-agents/context-cartographer/autogen/context_cartographer_agent.py",
+        "endpoint": "/autogen/copywriters/context-cartographer"
+      },
+      {
+        "name": "symptom-translator",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "pain_detector",
+        "file": "domains/copywriters/agents/pain_detector/sub-agents/symptom-translator/autogen/symptom_translator_agent.py",
+        "endpoint": "/autogen/copywriters/symptom-translator"
+      },
+      {
+        "name": "impact-prioritizer",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "pain_detector",
+        "file": "domains/copywriters/agents/pain_detector/sub-agents/impact-prioritizer/autogen/impact_prioritizer_agent.py",
+        "endpoint": "/autogen/copywriters/impact-prioritizer"
+      },
+      {
+        "name": "consequence-amplifier",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "pain_detector",
+        "file": "domains/copywriters/agents/pain_detector/sub-agents/consequence-amplifier/autogen/consequence_amplifier_agent.py",
+        "endpoint": "/autogen/copywriters/consequence-amplifier"
+      },
+      {
+        "name": "digital-ethnographer",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "pain_detector",
+        "file": "domains/copywriters/agents/pain_detector/sub-agents/digital-ethnographer/autogen/digital_ethnographer_agent.py",
+        "endpoint": "/autogen/copywriters/digital-ethnographer"
+      },
+      {
+        "name": "cognition_scanner",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "neurohook_ultra",
+        "file": "domains/copywriters/agents/neurohook_ultra/sub-agents/cognition_scanner/autogen/cognition_scanner_agent.py",
+        "endpoint": "/autogen/copywriters/cognition_scanner"
+      },
+      {
+        "name": "relevance_engineer",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "neurohook_ultra",
+        "file": "domains/copywriters/agents/neurohook_ultra/sub-agents/relevance_engineer/autogen/relevance_engineer_agent.py",
+        "endpoint": "/autogen/copywriters/relevance_engineer"
+      },
+      {
+        "name": "urgency_programmer",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "neurohook_ultra",
+        "file": "domains/copywriters/agents/neurohook_ultra/sub-agents/urgency_programmer/autogen/urgency_programmer_agent.py",
+        "endpoint": "/autogen/copywriters/urgency_programmer"
+      },
+      {
+        "name": "dissonance_architect",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "neurohook_ultra",
+        "file": "domains/copywriters/agents/neurohook_ultra/sub-agents/dissonance_architect/autogen/dissonance_architect_agent.py",
+        "endpoint": "/autogen/copywriters/dissonance_architect"
+      },
+      {
+        "name": "credibility_calibrator",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "neurohook_ultra",
+        "file": "domains/copywriters/agents/neurohook_ultra/sub-agents/credibility_calibrator/autogen/credibility_calibrator_agent.py",
+        "endpoint": "/autogen/copywriters/credibility_calibrator"
+      },
+      {
+        "name": "TRANSDISCIPLINARY-SYNTHESIZER",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "paradigm_architect",
+        "file": "domains/copywriters/agents/paradigm_architect/sub-agents/TRANSDISCIPLINARY-SYNTHESIZER/autogen/transdisciplinary_synthesizer_agent.py",
+        "endpoint": "/autogen/copywriters/TRANSDISCIPLINARY-SYNTHESIZER"
+      },
+      {
+        "name": "CONCEPT-ARCHITECT",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "paradigm_architect",
+        "file": "domains/copywriters/agents/paradigm_architect/sub-agents/CONCEPT-ARCHITECT/autogen/concept_architect_agent.py",
+        "endpoint": "/autogen/copywriters/CONCEPT-ARCHITECT"
+      },
+      {
+        "name": "AXIOM-ARCHAEOLOGIST",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "paradigm_architect",
+        "file": "domains/copywriters/agents/paradigm_architect/sub-agents/AXIOM-ARCHAEOLOGIST/autogen/axiom_archaeologist_agent.py",
+        "endpoint": "/autogen/copywriters/AXIOM-ARCHAEOLOGIST"
+      },
+      {
+        "name": "LEGITIMACY-ENGINEER",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "paradigm_architect",
+        "file": "domains/copywriters/agents/paradigm_architect/sub-agents/LEGITIMACY-ENGINEER/autogen/legitimacy_engineer_agent.py",
+        "endpoint": "/autogen/copywriters/LEGITIMACY-ENGINEER"
+      },
+      {
+        "name": "PARADIGMATIC-LINGUIST",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "paradigm_architect",
+        "file": "domains/copywriters/agents/paradigm_architect/sub-agents/PARADIGMATIC-LINGUIST/autogen/paradigmatic_linguist_agent.py",
+        "endpoint": "/autogen/copywriters/PARADIGMATIC-LINGUIST"
+      },
+      {
+        "name": "transition_specialist",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "retention_architect",
+        "file": "domains/copywriters/agents/retention_architect/sub-agents/transition_specialist/autogen/transition_specialist_agent.py",
+        "endpoint": "/autogen/copywriters/transition_specialist"
+      },
+      {
+        "name": "immersion_architect",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "retention_architect",
+        "file": "domains/copywriters/agents/retention_architect/sub-agents/immersion_architect/autogen/immersion_architect_agent.py",
+        "endpoint": "/autogen/copywriters/immersion_architect"
+      },
+      {
+        "name": "journey_cartographer",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "retention_architect",
+        "file": "domains/copywriters/agents/retention_architect/sub-agents/journey_cartographer/autogen/journey_cartographer_agent.py",
+        "endpoint": "/autogen/copywriters/journey_cartographer"
+      },
+      {
+        "name": "rhythm_programmer",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "retention_architect",
+        "file": "domains/copywriters/agents/retention_architect/sub-agents/rhythm_programmer/autogen/rhythm_programmer_agent.py",
+        "endpoint": "/autogen/copywriters/rhythm_programmer"
+      },
+      {
+        "name": "tension_engineer",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "retention_architect",
+        "file": "domains/copywriters/agents/retention_architect/sub-agents/tension_engineer/autogen/tension_engineer_agent.py",
+        "endpoint": "/autogen/copywriters/tension_engineer"
+      },
+      {
+        "name": "value_amplifier",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "conversion_catalyst",
+        "file": "domains/copywriters/agents/conversion_catalyst/sub-agents/value_amplifier/autogen/value_amplifier_agent.py",
+        "endpoint": "/autogen/copywriters/value_amplifier"
+      },
+      {
+        "name": "risk_neutralizer",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "conversion_catalyst",
+        "file": "domains/copywriters/agents/conversion_catalyst/sub-agents/risk_neutralizer/autogen/risk_neutralizer_agent.py",
+        "endpoint": "/autogen/copywriters/risk_neutralizer"
+      },
+      {
+        "name": "decision-mapper",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "conversion_catalyst",
+        "file": "domains/copywriters/agents/conversion_catalyst/sub-agents/decision-mapper/autogen/decision_mapper_agent.py",
+        "endpoint": "/autogen/copywriters/decision-mapper"
+      },
+      {
+        "name": "urgency_architect",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "conversion_catalyst",
+        "file": "domains/copywriters/agents/conversion_catalyst/sub-agents/urgency_architect/autogen/urgency_architect_agent.py",
+        "endpoint": "/autogen/copywriters/urgency_architect"
+      },
+      {
+        "name": "command-architect",
+        "type": "autogen",
+        "domain": "copywriters",
+        "parent": "conversion_catalyst",
+        "file": "domains/copywriters/agents/conversion_catalyst/sub-agents/command-architect/autogen/command_architect_agent.py",
+        "endpoint": "/autogen/copywriters/command-architect"
+      },
+      {
+        "name": "1 copy 3",
+        "type": "autogen",
+        "domain": "analytics",
+        "parent": "ANALYTICSGPT | Super Track",
+        "file": "domains/analytics/agents/ANALYTICSGPT | Super Track/sub_agents/1 copy 3/autogen/1 copy 3_agent.py",
+        "endpoint": "/autogen/analytics/1 copy 3"
+      },
+      {
+        "name": "1 copy 4",
+        "type": "autogen",
+        "domain": "analytics",
+        "parent": "ANALYTICSGPT | Super Track",
+        "file": "domains/analytics/agents/ANALYTICSGPT | Super Track/sub_agents/1 copy 4/autogen/1 copy 4_agent.py",
+        "endpoint": "/autogen/analytics/1 copy 4"
+      },
+      {
+        "name": "1 copy 2",
+        "type": "autogen",
+        "domain": "analytics",
+        "parent": "ANALYTICSGPT | Super Track",
+        "file": "domains/analytics/agents/ANALYTICSGPT | Super Track/sub_agents/1 copy 2/autogen/1 copy 2_agent.py",
+        "endpoint": "/autogen/analytics/1 copy 2"
+      },
+      {
+        "name": "1",
+        "type": "autogen",
+        "domain": "analytics",
+        "parent": "ANALYTICSGPT | Super Track",
+        "file": "domains/analytics/agents/ANALYTICSGPT | Super Track/sub_agents/1/autogen/1_agent.py",
+        "endpoint": "/autogen/analytics/1"
+      },
+      {
+        "name": "1 copy",
+        "type": "autogen",
+        "domain": "analytics",
+        "parent": "ANALYTICSGPT | Super Track",
+        "file": "domains/analytics/agents/ANALYTICSGPT | Super Track/sub_agents/1 copy/autogen/1 copy_agent.py",
+        "endpoint": "/autogen/analytics/1 copy"
+      }
+    ]
+  },
+  "tools": {
+    "shared_tools": [
+      {
+        "name": "research",
+        "endpoint": "/tools/research"
+      },
+      {
+        "name": "knowledge_search",
+        "endpoint": "/tools/knowledge_search"
+      },
+      {
+        "name": "file_operations",
+        "endpoint": "/tools/files"
+      },
+      {
+        "name": "agent_coordination",
+        "endpoint": "/tools/coordination"
+      }
+    ]
+  },
+  "communication": {
+    "protocol": "MCP",
+    "timeout": 120,
+    "retry_attempts": 3
+  }
+}

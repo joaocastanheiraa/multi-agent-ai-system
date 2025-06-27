@@ -1,0 +1,13 @@
+tools:
+  chart_generator:
+    config: {}
+    description: Tool chart_generator para ANALYTICSGPT | Super Track
+    enabled: true
+  data_analysis:
+    config: {}
+    description: Tool data_analysis para ANALYTICSGPT | Super Track
+    enabled: true
+  sql_query:
+    config: {}
+    description: Tool sql_query para ANALYTICSGPT | Super Track
+    enabled: true

@@ -1,0 +1,36 @@
+{
+  "timestamp": "2025-06-25T10:41:36.329476",
+  "total_tests": 4,
+  "passed": 1,
+  "failed": 3,
+  "success_rate": "25.0%",
+  "results": [
+    {
+      "test": "server_health",
+      "status": "PASS",
+      "response": {
+        "message": "🚀 SynapScale Backend API",
+        "description": "API de Automação e IA - Versão Otimizada com Configuração Centralizada",
+        "version": "2.0.0",
+        "environment": "development",
+        "docs": "/docs",
+        "redoc": "/redoc",
+        "health": "/health",
+        "api_prefix": "/api/v1",
+        "features": {
+          "authentication": "✅ JWT + Refresh Token",
+          "workflows": "✅ Execução de Automações",
+          "ai_agents": "✅ Múltiplos Provedores",
+          "websockets": "✅ Tempo Real",
+          "file_upload": "✅ Gerenciamento de Arquivos",
+          "user_variables": "✅ Configurações Personalizadas"
+        },
+        "contact": {
+          "team": "SynapScale Team",
+          "email": "support@synapscale.com"
+        },
+        "timestamp": 1750858896.309976
+      }
+    }
+  ]
+}

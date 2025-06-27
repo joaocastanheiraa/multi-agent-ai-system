@@ -185,7 +185,7 @@ class AgentTester:
         try:
             # Tentar MCP Server primeiro
             response = requests.post(
-                "http://localhost:8000/chat",
+                "http://localhost:8001/chat",
                 json={
                     "agent": agent_name,
                     "message": input_text,

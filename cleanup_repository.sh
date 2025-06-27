@@ -71,12 +71,50 @@ rm -f README_PRODUCTION.md
 rm -f README_FULL_USAGE.md
 rm -f LANGGRAPH_STUDIO_ACCESS.md
 
+# 🚨 DOCUMENTOS DUPLICADOS IDENTIFICADOS NA RAIZ
+echo "🚨 Removendo documentos duplicados da raiz (devem estar em /docs)..."
+mv REVISAO_FINAL_SISTEMA.md docs/ 2>/dev/null || rm -f REVISAO_FINAL_SISTEMA.md
+mv SISTEMA_COMPLETO_FUNCIONANDO.md docs/ 2>/dev/null || rm -f SISTEMA_COMPLETO_FUNCIONANDO.md
+mv REVISAO_COMPLETA_PORTA_8001.md docs/ 2>/dev/null || rm -f REVISAO_COMPLETA_PORTA_8001.md
+mv ANALISE_LIMPEZA_REPOSITORIO.md docs/ 2>/dev/null || rm -f ANALISE_LIMPEZA_REPOSITORIO.md
+mv MIGRAÇÃO_COMPLETA_FINAL_REPORT.md docs/ 2>/dev/null || rm -f MIGRAÇÃO_COMPLETA_FINAL_REPORT.md
+mv LANGCHAIN_OPTIMIZATIONS_SUMMARY.md docs/ 2>/dev/null || rm -f LANGCHAIN_OPTIMIZATIONS_SUMMARY.md
+mv LANGCHAIN_OPTIMIZATION_REPORT_20250625_172048.md docs/ 2>/dev/null || rm -f LANGCHAIN_OPTIMIZATION_REPORT_20250625_172048.md
+mv MCP_INTEGRATION_SUCCESS_REPORT.md docs/ 2>/dev/null || rm -f MCP_INTEGRATION_SUCCESS_REPORT.md
+mv README_MCP_MARKETPLACE.md docs/ 2>/dev/null || rm -f README_MCP_MARKETPLACE.md
+mv TROUBLESHOOTING_MCP.md docs/ 2>/dev/null || rm -f TROUBLESHOOTING_MCP.md
+
+# 🗑️ DOCUMENTOS NOVOS CRIADOS POR ENGANO (DUPLICADOS)
+echo "🗑️ Removendo documentos novos duplicados criados por engano..."
+rm -f ARQUITETURA_ORGANIZADA.md
+rm -f SISTEMA_ORGANIZADO_FINAL.md
+rm -f README_SISTEMA_ORGANIZADO.md
+
 # Scripts de Teste Duplicados
 echo "🧪 Removendo scripts de teste duplicados..."
 rm -f test_agents_working.py
 rm -f test_real_openai.py
 rm -f test_system.py
 rm -f run_all_tests.py
+
+# 🚨 SCRIPTS DUPLICADOS CRIADOS POR ENGANO
+echo "🚨 Removendo scripts novos duplicados criados por engano..."
+rm -f organize_and_cleanup_system.py
+rm -f deploy_organized_system.py
+
+# 🔧 SCRIPTS DE SISTEMA DUPLICADOS/TEMPORÁRIOS
+echo "🔧 Removendo scripts de sistema duplicados..."
+rm -f migration_script.py
+rm -f neurohook_ultra_optimized_example.py
+rm -f functional_neurohook_controller.py
+rm -f test_mcp_imports.py
+rm -f run_mcp_ui.py
+
+# 📊 RELATÓRIOS E LOGS DUPLICADOS
+echo "📊 Removendo relatórios e logs duplicados..."
+rm -f SYSTEM_ORGANIZATION_REPORT.json
+rm -f system_review_report.json
+rm -f integration_report.json
 
 # Arquivos de Sistema/Temporários
 echo "🗃️  Removendo arquivos temporários..."

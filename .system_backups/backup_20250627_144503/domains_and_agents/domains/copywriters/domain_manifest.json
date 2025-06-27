@@ -1,0 +1,52 @@
+{
+  "domain_name": "copywriters",
+  "domain_type": "content_creation",
+  "description": "Domínio especializado em copywriting avançado com neurociência aplicada",
+  "migration_status": "migrated",
+  "migration_date": "2025-06-25T10:23:58.956435",
+  "agents": {
+    "main_agents_count": 6,
+    "sub_agents_count": 30,
+    "total_agents": 36,
+    "main_agents": [
+      "conversion_catalyst",
+      "neurohook_ultra",
+      "pain_detector",
+      "paradigm_architect",
+      "metaphor_architect",
+      "retention_architect"
+    ]
+  },
+  "specializations": [
+    "Otimização de conversão neurológica",
+    "Geração de hooks psicológicos",
+    "Detecção e mapeamento de dores",
+    "Transformação paradigmática",
+    "Criação de metáforas isomórficas",
+    "Engenharia de retenção"
+  ],
+  "knowledge_bases": [
+    "conversion_catalyst_knowledge",
+    "metaphor_architect_knowledge",
+    "neurohook_knowledge",
+    "pain_detector_knowledge",
+    "paradigm_architect_knowledge",
+    "retention_architect_knowledge"
+  ],
+  "architecture": {
+    "current": "prompt_based",
+    "target": "langgraph_controllers",
+    "sub_agents_target": "autogen_agents"
+  },
+  "next_phases": [
+    "langraph_conversion",
+    "autogen_implementation",
+    "rag_optimization"
+  ],
+  "dependencies": [],
+  "interfaces": [
+    "mcp_server",
+    "fastapi",
+    "websocket"
+  ]
+}

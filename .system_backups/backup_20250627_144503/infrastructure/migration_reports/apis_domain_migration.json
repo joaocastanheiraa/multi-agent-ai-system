@@ -1,0 +1,18 @@
+{
+  "migration_type": "APIs Domain Complete",
+  "start_time": "2025-06-25T08:31:40.778234",
+  "agents_migrated": [
+    "HotmartAPIMaster",
+    "KiwifyAPIMaster",
+    "PerfectpayAPIMaster",
+    "PaytAPIMaster",
+    "APIUnifyMaster",
+    "APIsImputOutputMapper"
+  ],
+  "files_migrated": 137,
+  "errors": [],
+  "end_time": "2025-06-25T08:31:40.821971",
+  "success": true,
+  "agents_total": 6,
+  "agents_migrated_count": 6
+}

@@ -1,0 +1,20 @@
+{
+  "knowledge_base_name": "metaphor_architect_knowledge",
+  "type": "domain_knowledge_base",
+  "migration_status": "migrated",
+  "migration_date": "2025-06-25T08:35:18.565982",
+  "total_files": 5,
+  "subdirectories": [],
+  "root_files": [
+    "Psicologia da Compreensão Analogica.md",
+    "Tipologia de Estruturas Analógicas",
+    "summary.md",
+    "Princípios de Mapeamento Isomórfico.md",
+    "Técnicas De Visualização.md"
+  ],
+  "specialization": "Princípios de mapeamento isomórfico e psicologia da compreensão analógica",
+  "next_phase": "rag_optimization",
+  "target_vector_db": "supabase",
+  "chunking_strategy": "semantic",
+  "embedding_model": "text-embedding-3-large"
+}

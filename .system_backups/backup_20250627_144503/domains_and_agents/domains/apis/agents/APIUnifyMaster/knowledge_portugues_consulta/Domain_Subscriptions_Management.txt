@@ -1,0 +1,1405 @@
+﻿# `Domain_Subscriptions_Management.md`, que detalha a estrutura e o gerenciamento das assinaturas recorrentes no sistema.
+
+
+Domínio: Gerenciamento de Assinaturas
+
+
+```markdown
+---
+title: "Domínio: Gerenciamento de Assinaturas"
+id: "domain_subscriptions_management_001"
+doc_type: "domain_functional"
+doc_version: "1.1"
+date_created: "2025-04-23"
+date_updated: "2025-04-23"
+author: "João Castanheira"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Aprovado"
+environment: "Produção"
+related_docs: [
+  "core_db_architecture_001", 
+  "platform_integration_strategy_001", 
+  "domain_customers_ecosystem_001",
+  "domain_products_catalog_001", 
+  "domain_transactions_lifecycle_001",
+  "process_flow_subscription_lifecycle_001"
+]
+tables_in_domain: [
+  "subscriptions", 
+  "subscription_status_history", 
+  "transaction_statuses", 
+  "plans", 
+  "transactions"
+]
+functional_domain: ["Recurring Revenue", "Billing", "Customer Retention"]
+embedding_guide_concepts: [
+  "assinatura recorrente", 
+  "ciclo de vida assinatura", 
+  "status de assinatura", 
+  "próxima cobrança", 
+  "renovação automática", 
+  "período de trial", 
+  "cancelamento assinatura", 
+  "inadimplência", 
+  "falha de pagamento", 
+  "retenção assinante", 
+  "churn rate", 
+  "MRR", 
+  "ARR", 
+  "lifetime value", 
+  "dunning", 
+  "upgrade plano", 
+  "downgrade plano"
+]
+---
+
+
+# Domínio: Gerenciamento de Assinaturas
+
+
+## Visão Geral do Domínio
+
+
+O domínio de Gerenciamento de Assinaturas é responsável pelo ciclo de vida completo das relações de cobrança recorrente entre clientes e produtos/serviços. Enquanto o domínio de Transações registra eventos isolados de pagamento, este domínio gerencia o relacionamento contínuo que gera receita recorrente ao longo do tempo.
+
+
+Uma assinatura representa um contrato de cobrança periódica automática onde:
+
+
+- Um **cliente** adquire acesso a um **produto/serviço**
+- Seguindo as regras definidas em um **plano** (preço, frequência, duração)
+- Com **cobranças automáticas** em intervalos regulares
+- Passando por diferentes **estados** durante seu ciclo de vida (ativa, inadimplente, cancelada)
+- Gerando múltiplas **transações recorrentes** ao longo do tempo
+
+
+Este domínio implementa as estruturas de dados e relacionamentos necessários para:
+1. Rastrear o estado atual e histórico de cada assinatura
+2. Gerenciar datas cruciais (início, próxima cobrança, término)
+3. Facilitar a análise de métricas de negócio recorrente (MRR, churn, retenção)
+4. Suportar processos de retenção, renovação e recuperação
+
+
+As tabelas fundamentais do domínio são `subscriptions` (dados centrais da assinatura) e `subscription_status_history` (registro cronológico de mudanças de estado), com relacionamentos críticos com as tabelas `plans`, `customers` e `transactions`.
+
+
+(Ref: Gerenciamento de Assinaturas, ID domain_subscriptions_management_001)
+
+
+## Ciclo de Vida de uma Assinatura
+
+
+### Diagrama de Estados
+
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pendente: Checkout iniciado
+    Pendente --> Trial: Pagamento inicial aprovado (com trial)
+    Pendente --> Ativa: Pagamento inicial aprovado (sem trial)
+    Pendente --> Cancelada: Pagamento inicial recusado
+    
+    Trial --> Ativa: Período trial encerrado com pagamento aprovado
+    Trial --> Cancelada: Cliente cancela durante trial
+    Trial --> Inadimplente: Período trial encerrado com falha no pagamento
+    
+    Ativa --> Inadimplente: Falha na renovação
+    Ativa --> Cancelada: Cliente solicita cancelamento
+    Ativa --> Concluída: Atingiu máximo de ciclos
+    
+    Inadimplente --> Ativa: Pagamento recuperado
+    Inadimplente --> Cancelada: Falhas persistentes
+    
+    Cancelada --> [*]
+    Concluída --> [*]
+```
+
+
+### 1. Criação e Adesão
+
+
+A assinatura nasce a partir de uma transação inicial aprovada:
+
+
+```sql
+-- Após transação inicial aprovada, criamos a assinatura
+INSERT INTO subscriptions (
+    subscription_id,
+    subscriber_id,
+    initial_transaction_id,
+    customer_id,
+    plan_id,
+    payment_gateway,
+    billing_cycle,
+    max_cycles,
+    start_date,
+    next_billing_date,
+    status_id
+)
+VALUES (
+    'SUB-12345',
+    'CUST-789',
+    'TRX-456',
+    (SELECT id FROM customers WHERE email = 'cliente@exemplo.com'),
+    (SELECT id FROM plans WHERE plan_id = 'PLANO-MENSAL'),
+    'payment_platform',
+    'MONTHLY',
+    12,  -- Limite de 12 ciclos
+    CURRENT_TIMESTAMP,  -- Início imediato
+    CURRENT_TIMESTAMP + INTERVAL '30 days',  -- Próxima cobrança em 30 dias
+    (SELECT id FROM transaction_statuses WHERE status = 'Ativa')
+);
+
+
+-- Registramos o estado inicial no histórico
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    reason
+)
+VALUES (
+    (SELECT id FROM subscriptions WHERE subscription_id = 'SUB-12345'),
+    (SELECT id FROM transaction_statuses WHERE status = 'Ativa'),
+    'Criação da assinatura após pagamento inicial aprovado'
+);
+```
+
+
+Durante a criação, o sistema:
+1. Vincula a assinatura ao cliente, plano e transação inicial
+2. Define parâmetros de recorrência baseados no plano escolhido
+3. Estabelece datas importantes (início e próxima cobrança)
+4. Configura o status inicial apropriado
+5. Registra a criação no histórico de status
+
+
+### 2. Período de Trial (Opcional)
+
+
+Quando o plano inclui período gratuito de avaliação:
+
+
+```sql
+-- Para planos com trial, configuração inicial um pouco diferente
+INSERT INTO subscriptions (
+    -- campos básicos semelhantes ao exemplo anterior
+    start_date,
+    next_billing_date,
+    status_id
+)
+VALUES (
+    -- outros valores
+    CURRENT_TIMESTAMP,  -- Início do trial
+    CURRENT_TIMESTAMP + INTERVAL '14 days',  -- Primeira cobrança após 14 dias
+    (SELECT id FROM transaction_statuses WHERE status = 'Trial')
+);
+
+
+-- Quando o trial termina, atualização automática do status
+UPDATE subscriptions
+SET 
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Ativa'),
+    next_billing_date = CURRENT_TIMESTAMP + INTERVAL '30 days'  -- Define ciclo regular
+WHERE 
+    id = [subscription_id] 
+    AND status_id = (SELECT id FROM transaction_statuses WHERE status = 'Trial');
+
+
+-- Com registro no histórico
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    reason
+)
+VALUES (
+    [subscription_id],
+    (SELECT id FROM transaction_statuses WHERE status = 'Ativa'),
+    'Conversão automática após período de trial'
+);
+```
+
+
+Durante o trial:
+- A assinatura tem status específico ("Trial" ou "Trial Ativo")
+- O cliente tem acesso ao produto sem cobrança adicional
+- Ao final do período, ocorre tentativa de primeira cobrança regular
+- O resultado dessa cobrança determina a continuidade da assinatura
+
+
+### 3. Renovações Automáticas
+
+
+O coração de um negócio de assinaturas é o processo de renovação automática:
+
+
+```sql
+-- Quando uma renovação é bem-sucedida
+UPDATE subscriptions
+SET 
+    next_billing_date = CURRENT_TIMESTAMP + INTERVAL '30 days',  -- Próximo ciclo
+    total_recurrences = total_recurrences + 1  -- Incrementa contador de recorrências
+WHERE 
+    id = [subscription_id];
+
+
+-- Verificação se atingiu limite de ciclos
+UPDATE subscriptions
+SET 
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Concluída'),
+    end_date = CURRENT_TIMESTAMP
+WHERE 
+    id = [subscription_id]
+    AND total_recurrences >= max_cycles
+    AND max_cycles > 0;  -- Apenas para assinaturas com limite de ciclos
+```
+
+
+Cada renovação:
+1. Gera uma nova transação vinculada à assinatura
+2. Incrementa o contador de recorrências
+3. Recalcula a próxima data de cobrança
+4. Verifica se o limite de ciclos foi atingido (quando aplicável)
+
+
+### 4. Falha de Pagamento e Recuperação
+
+
+Quando uma cobrança recorrente falha, inicia-se o fluxo de inadimplência:
+
+
+```sql
+-- Quando uma cobrança falha
+UPDATE subscriptions
+SET 
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Inadimplente')
+WHERE 
+    id = [subscription_id];
+
+
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    reason
+)
+VALUES (
+    [subscription_id],
+    (SELECT id FROM transaction_statuses WHERE status = 'Inadimplente'),
+    'Falha na tentativa de cobrança recorrente: cartão recusado'
+);
+
+
+-- Quando um pagamento é recuperado
+UPDATE subscriptions
+SET 
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Ativa'),
+    next_billing_date = CURRENT_TIMESTAMP + INTERVAL '30 days'  -- Volta ao ciclo normal
+WHERE 
+    id = [subscription_id];
+
+
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    reason
+)
+VALUES (
+    [subscription_id],
+    (SELECT id FROM transaction_statuses WHERE status = 'Ativa'),
+    'Pagamento recuperado após atualização do meio de pagamento'
+);
+```
+
+
+O processo de recuperação (dunning) pode incluir:
+- Múltiplas tentativas automatizadas de reprocessamento
+- Comunicações programadas com o cliente
+- Períodos de tolerância antes do cancelamento definitivo
+- Estratégias de incentivo para atualização do método de pagamento
+
+
+### 5. Cancelamento
+
+
+O cancelamento pode ser iniciado pelo cliente ou pelo sistema:
+
+
+```sql
+-- Cancelamento solicitado pelo cliente
+UPDATE subscriptions
+SET 
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Cancelada Assinante'),
+    cancel_date = CURRENT_TIMESTAMP,
+    end_date = CASE
+        WHEN [cancelamento_imediato] THEN CURRENT_TIMESTAMP
+        ELSE next_billing_date  -- Acesso continua até final do período pago
+    END
+WHERE 
+    id = [subscription_id];
+
+
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    reason
+)
+VALUES (
+    [subscription_id],
+    (SELECT id FROM transaction_statuses WHERE status = 'Cancelada Assinante'),
+    'Cancelamento solicitado pelo cliente: ' || [motivo_informado]
+);
+
+
+-- Cancelamento automático pelo sistema (após falhas persistentes)
+UPDATE subscriptions
+SET 
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Cancelada Sistema'),
+    cancel_date = CURRENT_TIMESTAMP,
+    end_date = CURRENT_TIMESTAMP
+WHERE 
+    id = [subscription_id];
+
+
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    reason
+)
+VALUES (
+    [subscription_id],
+    (SELECT id FROM transaction_statuses WHERE status = 'Cancelada Sistema'),
+    'Cancelamento automático após 3 tentativas falhas de cobrança'
+);
+```
+
+
+Diferentes políticas podem ser aplicadas ao cancelamento:
+- **Cancelamento imediato**: Acesso termina no momento do cancelamento
+- **Cancelamento ao final do período**: Cliente mantém acesso até a data original da próxima cobrança
+- **Cancelamento com reembolso**: Em casos específicos, pode haver devolução proporcional
+
+
+(Ref: Gerenciamento de Assinaturas, ID domain_subscriptions_management_001)
+
+
+## Estrutura de Dados e Relacionamentos
+
+
+### Tabela Central: `subscriptions`
+
+
+```sql
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id                     SERIAL PRIMARY KEY,
+    subscription_id        VARCHAR(100) NOT NULL,          -- ID da assinatura na plataforma
+    subscriber_id          VARCHAR(100),                   -- ID do assinante na plataforma
+    initial_transaction_id VARCHAR(100),                   -- ID da transação inicial
+    customer_id            INTEGER REFERENCES customers,    -- Cliente associado
+    plan_id                INTEGER REFERENCES plans,        -- Plano associado
+    payment_gateway        VARCHAR(100) NOT NULL,          -- Gateway de pagamento
+    billing_cycle          VARCHAR(50),                    -- Ciclo de cobrança
+    total_recurrences      INTEGER,                        -- Total de recorrências realizadas
+    max_cycles             INTEGER,                        -- Ciclos máximos permitidos
+    last_update            TIMESTAMP WITH TIME ZONE,       -- Última atualização
+    start_date             TIMESTAMP WITH TIME ZONE,       -- Data de início
+    end_date               TIMESTAMP WITH TIME ZONE,       -- Data de término
+    created_at             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    status_id              INTEGER REFERENCES transaction_statuses, -- Status atual
+    request_billet         BOOLEAN DEFAULT false,          -- Solicitação de boleto
+    next_billing_date      TIMESTAMP WITH TIME ZONE,       -- Próxima data de cobrança
+    cancel_date            TIMESTAMP WITH TIME ZONE,       -- Data de cancelamento
+    CONSTRAINT uq_subscription_gateway UNIQUE (subscription_id, payment_gateway)
+);
+```
+
+
+Esta tabela é o núcleo do domínio, armazenando todos os detalhes essenciais de uma assinatura.
+
+
+#### Grupos de Campos por Função
+
+
+| Grupo | Campos | Descrição |
+|-------|--------|-----------|
+| **Identificação** | `id`, `subscription_id`, `payment_gateway`, `subscriber_id` | Identificadores únicos da assinatura no sistema e na plataforma de origem |
+| **Relacionamentos** | `customer_id`, `plan_id`, `status_id` | Vínculos com entidades fundamentais do sistema |
+| **Configuração** | `billing_cycle`, `max_cycles`, `request_billet` | Parâmetros que definem como a assinatura opera |
+| **Contadores** | `total_recurrences` | Rastreamento do progresso da assinatura |
+| **Datas Críticas** | `start_date`, `end_date`, `next_billing_date`, `cancel_date` | Marcos temporais que governam o ciclo de vida |
+| **Metadados** | `created_at`, `updated_at`, `last_update` | Informações de controle do registro |
+
+
+### Tabela de Histórico: `subscription_status_history`
+
+
+```sql
+CREATE TABLE IF NOT EXISTS subscription_status_history (
+    id              SERIAL PRIMARY KEY,
+    subscription_id INTEGER NOT NULL REFERENCES subscriptions ON DELETE CASCADE,
+    status_id       INTEGER NOT NULL REFERENCES transaction_statuses,
+    change_date     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    reason          TEXT,                                   -- Motivo da mudança
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+
+Esta tabela fornece a trilha de auditoria completa de cada mudança de estado da assinatura ao longo do tempo, permitindo:
+
+
+- Reconstruir a história completa de cada assinatura
+- Entender as razões por trás de cada mudança de status
+- Calcular o tempo médio em cada estado
+- Identificar padrões de progressão que precedem cancelamentos
+
+
+### Diagrama de Relacionamentos
+
+
+```mermaid
+erDiagram
+    SUBSCRIPTIONS ||--o{ SUBSCRIPTION_STATUS_HISTORY : "registra mudanças"
+    SUBSCRIPTIONS }o--|| TRANSACTION_STATUSES : "tem status atual"
+    SUBSCRIPTION_STATUS_HISTORY }o--|| TRANSACTION_STATUSES : "referencia status"
+    SUBSCRIPTIONS }o--|| CUSTOMERS : "pertence a"
+    SUBSCRIPTIONS }o--|| PLANS : "segue regras de"
+    SUBSCRIPTIONS ||--o{ TRANSACTIONS : "gera"
+    PLANS }o--|| PRODUCTS : "associado a"
+```
+
+
+Os relacionamentos cruciais incluem:
+- **Cliente (1:N Assinaturas)**: Um cliente pode ter múltiplas assinaturas ativas ou encerradas
+- **Plano (1:N Assinaturas)**: Um plano pode ser utilizado por múltiplas assinaturas
+- **Assinatura (1:N Transações)**: Uma assinatura gera múltiplas transações recorrentes
+- **Assinatura (1:N Histórico)**: Uma assinatura possui um histórico completo de mudanças de status
+
+
+(Ref: Gerenciamento de Assinaturas, ID domain_subscriptions_management_001)
+
+
+## Regras de Negócio e Padrões de Operação
+
+
+### Datas Críticas e sua Importância
+
+
+O domínio de assinaturas depende fundamentalmente de três datas principais:
+
+
+#### `next_billing_date` (Próxima Cobrança)
+
+
+```sql
+-- Atualização após cobrança bem-sucedida
+UPDATE subscriptions
+SET next_billing_date = CASE
+    WHEN billing_cycle = 'MONTHLY' THEN CURRENT_TIMESTAMP + INTERVAL '1 month'
+    WHEN billing_cycle = 'YEARLY' THEN CURRENT_TIMESTAMP + INTERVAL '1 year'
+    WHEN billing_cycle = 'QUARTERLY' THEN CURRENT_TIMESTAMP + INTERVAL '3 months'
+    ELSE CURRENT_TIMESTAMP + INTERVAL '30 days' -- Fallback
+END
+WHERE id = [subscription_id];
+```
+
+
+- **Função**: Controla quando a próxima tentativa de cobrança deve ocorrer
+- **Cálculo Inicial**: `start_date + período_trial` (se trial) ou `start_date + período_recorrência` (sem trial)
+- **Atualizações**: Após cada cobrança bem-sucedida, baseada na periodicidade do plano
+- **Importância**: Essencial para o agendamento de cobranças futuras e para relatórios de previsão de receita
+
+
+#### `cancel_date` (Data de Cancelamento)
+
+
+```sql
+-- Registro do momento de solicitação do cancelamento
+UPDATE subscriptions
+SET 
+    cancel_date = CURRENT_TIMESTAMP,
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Cancelada Assinante')
+WHERE id = [subscription_id];
+```
+
+
+- **Função**: Marca o momento específico em que o cancelamento foi solicitado
+- **Importância**: 
+  - Crucial para análises de retenção e motivos de cancelamento
+  - Diferente de `end_date` quando o modelo permite acesso até o final do período pago
+  - Permite distinguir entre solicitação (cancel_date) e efetivação (end_date) do cancelamento
+
+
+#### `end_date` (Data de Término)
+
+
+```sql
+-- Definição durante cancelamento com base na política da empresa
+UPDATE subscriptions
+SET end_date = CASE
+    WHEN [cancelamento_imediato] THEN CURRENT_TIMESTAMP
+    ELSE next_billing_date -- Permite acesso até o final do período já pago
+END
+WHERE id = [subscription_id];
+```
+
+
+- **Função**: Indica quando a assinatura efetivamente termina (acesso encerrado)
+- **Cenários de Definição**:
+  - Cancelamento imediato: `end_date = cancel_date`
+  - Cancelamento ao fim do período: `end_date = next_billing_date` (da data do cancelamento)
+  - Término por ciclos máximos: `end_date = data da última cobrança + período do plano`
+- **Importância**: Determina até quando o cliente mantém acesso ao produto/serviço
+
+
+### Cálculo de Renovação
+
+
+A determinação da próxima data de cobrança deve considerar vários fatores:
+
+
+```sql
+-- Função para calcular próxima data de cobrança
+CREATE OR REPLACE FUNCTION calculate_next_billing_date(
+    current_date TIMESTAMP WITH TIME ZONE,
+    billing_cycle VARCHAR,
+    recurrence_interval INTEGER DEFAULT 1
+) RETURNS TIMESTAMP WITH TIME ZONE AS $$
+DECLARE
+    next_date TIMESTAMP WITH TIME ZONE;
+BEGIN
+    CASE billing_cycle
+        WHEN 'DAILY' THEN 
+            next_date := current_date + (recurrence_interval * INTERVAL '1 day');
+        WHEN 'WEEKLY' THEN 
+            next_date := current_date + (recurrence_interval * INTERVAL '1 week');
+        WHEN 'MONTHLY' THEN 
+            next_date := current_date + (recurrence_interval * INTERVAL '1 month');
+        WHEN 'QUARTERLY' THEN 
+            next_date := current_date + (recurrence_interval * INTERVAL '3 months');
+        WHEN 'SEMIANNUAL' THEN 
+            next_date := current_date + (recurrence_interval * INTERVAL '6 months');
+        WHEN 'YEARLY' THEN 
+            next_date := current_date + (recurrence_interval * INTERVAL '1 year');
+        ELSE
+            -- Fallback para mensal se ciclo desconhecido
+            next_date := current_date + INTERVAL '1 month';
+    END CASE;
+    
+    RETURN next_date;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+
+Considerações importantes:
+- **Variações de dias no mês**: Alguns meses têm 28-31 dias, podendo causar desalinhamento em cobranças mensais
+- **Dia específico de cobrança**: Algumas plataformas permitem fixar um dia específico do mês para cobrança
+- **Feriados e fins de semana**: Podem afetar o processamento bancário das cobranças
+- **Diferentes fusos horários**: Cliente, plataforma e banco podem estar em fusos horários distintos
+
+
+### Lógica de Status e Transições
+
+
+Os status mais comuns de assinaturas e suas regras de transição:
+
+
+| Status | Descrição | Transições Permitidas | Regras de Negócio |
+|--------|-----------|------------------------|-------------------|
+| **Pendente** | Assinatura criada, aguardando confirmação inicial | → Ativa<br>→ Trial<br>→ Cancelada | Transição automática após resultado do pagamento inicial |
+| **Trial** | Período de avaliação gratuito ativo | → Ativa<br>→ Cancelada<br>→ Inadimplente | Transição automática após final do período de trial |
+| **Ativa** | Assinatura em pleno funcionamento | → Inadimplente<br>→ Cancelada<br>→ Concluída | Permanece neste estado enquanto pagamentos forem aprovados |
+| **Inadimplente** | Falha no pagamento, em período de tolerância | → Ativa<br>→ Cancelada | Recuperação possível dentro do período de grace/dunning |
+| **Cancelada** | Assinatura terminada por solicitação do cliente | (Estado final) | Pode ter subtipos: "Cancelada Assinante", "Cancelada Sistema" |
+| **Concluída** | Assinatura encerrada por atingir limite de ciclos | (Estado final) | Ocorre apenas quando max_cycles > 0 e total_recurrences >= max_cycles |
+
+
+```sql
+-- Verificação de transição válida (exemplo simplificado)
+CREATE OR REPLACE FUNCTION is_valid_subscription_status_transition(
+    current_status_id INTEGER,
+    new_status_id INTEGER
+) RETURNS BOOLEAN AS $$
+DECLARE
+    current_status VARCHAR;
+    new_status VARCHAR;
+    is_valid BOOLEAN := FALSE;
+BEGIN
+    -- Obter os nomes dos status
+    SELECT status INTO current_status FROM transaction_statuses WHERE id = current_status_id;
+    SELECT status INTO new_status FROM transaction_statuses WHERE id = new_status_id;
+    
+    -- Verificar se a transição é válida
+    CASE current_status
+        WHEN 'Pendente' THEN
+            is_valid := new_status IN ('Ativa', 'Trial', 'Cancelada');
+        WHEN 'Trial' THEN
+            is_valid := new_status IN ('Ativa', 'Cancelada', 'Inadimplente');
+        WHEN 'Ativa' THEN
+            is_valid := new_status IN ('Inadimplente', 'Cancelada', 'Concluída');
+        WHEN 'Inadimplente' THEN
+            is_valid := new_status IN ('Ativa', 'Cancelada');
+        WHEN 'Cancelada' THEN
+            is_valid := FALSE; -- Estado final
+        WHEN 'Concluída' THEN
+            is_valid := FALSE; -- Estado final
+        ELSE
+            is_valid := FALSE;
+    END CASE;
+    
+    RETURN is_valid;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+
+(Ref: Gerenciamento de Assinaturas, ID domain_subscriptions_management_001)
+
+
+## Métricas de Negócio Recorrente
+
+
+O domínio de assinaturas fornece a base de dados para métricas cruciais:
+
+
+### 1. Receita Recorrente
+
+
+#### MRR (Monthly Recurring Revenue)
+
+
+```sql
+-- Cálculo de MRR atual com normalização de periodicidade
+WITH subscription_mrr AS (
+    SELECT 
+        s.id,
+        CASE
+            WHEN p.recurrence_period = 'MONTH' THEN p.price
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            WHEN p.recurrence_period = 'QUARTER' THEN p.price / 3
+            WHEN p.recurrence_period = 'SEMIANNUAL' THEN p.price / 6
+            WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33 -- Aproximação
+            WHEN p.recurrence_period = 'DAY' THEN p.price * 30.44 -- Aproximação
+            ELSE p.price -- Fallback
+        END AS monthly_value
+    FROM 
+        subscriptions s
+    JOIN 
+        plans p ON s.plan_id = p.id
+    JOIN 
+        transaction_statuses ts ON s.status_id = ts.id
+    WHERE 
+        ts.status IN ('Ativa', 'Trial')
+        AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
+)
+SELECT 
+    SUM(monthly_value) AS total_mrr,
+    COUNT(*) AS active_subscriptions,
+    SUM(monthly_value) / COUNT(*) AS arpu -- Average Revenue Per User
+FROM 
+    subscription_mrr;
+```
+
+
+Esta métrica:
+- Normaliza todos os planos para base mensal, independente da periodicidade
+- Considera apenas assinaturas ativas e em trial
+- Permite comparações consistentes ao longo do tempo
+- Serve como base para projeções financeiras
+
+
+#### New MRR vs Churn MRR
+
+
+```sql
+-- MRR de novas assinaturas vs MRR perdido em um período
+WITH new_subscriptions AS (
+    SELECT 
+        s.id,
+        CASE
+            WHEN p.recurrence_period = 'MONTH' THEN p.price
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            -- Outros períodos normalizados para mensal
+        END AS monthly_value
+    FROM 
+        subscriptions s
+    JOIN 
+        plans p ON s.plan_id = p.id
+    WHERE 
+        s.start_date BETWEEN '2023-01-01' AND '2023-01-31'
+),
+churned_subscriptions AS (
+    SELECT 
+        s.id,
+        CASE
+            WHEN p.recurrence_period = 'MONTH' THEN p.price
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            -- Outros períodos normalizados para mensal
+        END AS monthly_value
+    FROM 
+        subscriptions s
+    JOIN 
+        plans p ON s.plan_id = p.id
+    JOIN 
+        subscription_status_history ssh ON s.id = ssh.subscription_id
+    JOIN 
+        transaction_statuses ts ON ssh.status_id = ts.id
+    WHERE 
+        ts.status IN ('Cancelada', 'Cancelada Assinante', 'Cancelada Sistema')
+        AND ssh.change_date BETWEEN '2023-01-01' AND '2023-01-31'
+        -- Garante que a assinatura estava ativa antes do período
+        AND EXISTS (
+            SELECT 1 
+            FROM subscription_status_history ssh2
+            JOIN transaction_statuses ts2 ON ssh2.status_id = ts2.id
+            WHERE ssh2.subscription_id = s.id
+            AND ts2.status = 'Ativa'
+            AND ssh2.change_date < '2023-01-01'
+        )
+)
+SELECT 
+    (SELECT SUM(monthly_value) FROM new_subscriptions) AS new_mrr,
+    (SELECT COUNT(*) FROM new_subscriptions) AS new_subscriptions_count,
+    (SELECT SUM(monthly_value) FROM churned_subscriptions) AS churned_mrr,
+    (SELECT COUNT(*) FROM churned_subscriptions) AS churned_subscriptions_count,
+    (SELECT SUM(monthly_value) FROM new_subscriptions) - 
+    (SELECT SUM(monthly_value) FROM churned_subscriptions) AS net_mrr
+```
+
+
+Este cálculo permite:
+- Entender o crescimento líquido de receita recorrente
+- Identificar períodos de expansão vs contração
+- Avaliar a eficácia de campanhas de aquisição vs retenção
+
+
+### 2. Métricas de Retenção
+
+
+#### Churn Rate (Taxa de Cancelamento)
+
+
+```sql
+-- Churn rate por período (mensal)
+WITH subscription_counts AS (
+    SELECT
+        DATE_TRUNC('month', d)::date AS month_start,
+        (
+            SELECT COUNT(*) 
+            FROM subscriptions s
+            JOIN transaction_statuses ts ON s.status_id = ts.id
+            WHERE 
+                ts.status IN ('Ativa', 'Trial') 
+                AND s.start_date < DATE_TRUNC('month', d)
+                AND (s.end_date IS NULL OR s.end_date > DATE_TRUNC('month', d))
+        ) AS start_count,
+        (
+            SELECT COUNT(*) 
+            FROM subscriptions s
+            JOIN subscription_status_history ssh ON s.id = ssh.subscription_id
+            JOIN transaction_statuses ts ON ssh.status_id = ts.id
+            WHERE 
+                ts.status IN ('Cancelada', 'Cancelada Assinante', 'Cancelada Sistema')
+                AND ssh.change_date BETWEEN DATE_TRUNC('month', d) AND 
+                                           (DATE_TRUNC('month', d) + INTERVAL '1 month - 1 day')
+        ) AS churned_count
+    FROM generate_series(
+        '2023-01-01'::timestamp, 
+        '2023-12-01'::timestamp, 
+        '1 month'::interval
+    ) d
+)
+SELECT
+    month_start,
+    start_count,
+    churned_count,
+    CASE 
+        WHEN start_count > 0 THEN 
+            ROUND((churned_count::numeric / start_count::numeric) * 100, 2)
+        ELSE 0
+    END AS churn_rate_percent,
+    CASE 
+        WHEN start_count > 0 THEN 
+            ROUND((1 - (churned_count::numeric / start_count::numeric)) * 100, 2)
+        ELSE 0
+    END AS retention_rate_percent
+FROM 
+    subscription_counts
+ORDER BY 
+    month_start;
+```
+
+
+Esta métrica:
+- Indica a porcentagem de assinaturas perdidas em um período
+- É um dos KPIs mais importantes para negócios de assinatura
+- Permite estimar o tempo médio de vida de uma assinatura (1/churn mensal)
+- Afeta diretamente a viabilidade financeira do modelo de negócio
+
+
+#### Análise de Sobrevivência de Coortes
+
+
+```sql
+-- Análise de retenção por coortes (grupos mensais de novos assinantes)
+WITH cohorts AS (
+    -- Define as coortes por mês de início
+    SELECT 
+        id AS subscription_id,
+        DATE_TRUNC('month', start_date)::date AS cohort_month
+    FROM 
+        subscriptions
+),
+retention_periods AS (
+    -- Calcula o período de retenção para cada assinatura
+    SELECT 
+        c.subscription_id,
+        c.cohort_month,
+        CASE
+            WHEN s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP THEN
+                EXTRACT(MONTH FROM AGE(CURRENT_TIMESTAMP, c.cohort_month::timestamp))
+            ELSE
+                EXTRACT(MONTH FROM AGE(s.end_date, c.cohort_month::timestamp))
+        END AS retention_month
+    FROM 
+        cohorts c
+    JOIN 
+        subscriptions s ON c.subscription_id = s.id
+),
+cohort_sizes AS (
+    -- Calcula o tamanho de cada coorte
+    SELECT 
+        cohort_month,
+        COUNT(*) AS total_subscribers
+    FROM 
+        cohorts
+    GROUP BY 
+        cohort_month
+),
+retention_counts AS (
+    -- Conta assinantes retidos por coorte e período
+    SELECT 
+        rp.cohort_month,
+        rp.retention_month,
+        COUNT(*) AS retained_subscribers
+    FROM 
+        retention_periods rp
+    GROUP BY 
+        rp.cohort_month, rp.retention_month
+)
+SELECT 
+    rc.cohort_month,
+    cs.total_subscribers AS cohort_size,
+    rc.retention_month,
+    rc.retained_subscribers,
+    ROUND((rc.retained_subscribers::numeric / cs.total_subscribers::numeric) * 100, 1) AS retention_rate
+FROM 
+    retention_counts rc
+JOIN 
+    cohort_sizes cs ON rc.cohort_month = cs.cohort_month
+WHERE 
+    rc.retention_month <= 12  -- Limita a 12 meses para clareza
+ORDER BY 
+    rc.cohort_month, rc.retention_month;
+```
+
+
+Esta análise:
+- Agrupa assinantes pela data de início (coorte)
+- Acompanha quanto tempo cada coorte permanece ativa
+- Permite identificar impactos de mudanças de produto/preço na retenção
+- Facilita a comparação de qualidade entre diferentes períodos de aquisição
+
+
+### 3. Métricas de Valor de Cliente
+
+
+#### LTV (Lifetime Value)
+
+
+```sql
+-- Cálculo simplificado de LTV por produto
+WITH subscription_values AS (
+    SELECT 
+        p.product_id,
+        pr.name AS product_name,
+        -- MRR médio por assinatura deste produto
+        AVG(CASE
+            WHEN p.recurrence_period = 'MONTH' THEN p.price
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            -- Outros períodos...
+        END) AS avg_mrr,
+        -- Churn mensal para este produto
+        COALESCE(
+            (SELECT COUNT(*) 
+             FROM subscriptions s2
+             JOIN subscription_status_history ssh ON s2.id = ssh.subscription_id
+             JOIN transaction_statuses ts ON ssh.status_id = ts.id
+             WHERE s2.plan_id IN (SELECT id FROM plans WHERE product_id = p.product_id)
+             AND ts.status IN ('Cancelada', 'Cancelada Assinante', 'Cancelada Sistema')
+             AND ssh.change_date BETWEEN CURRENT_TIMESTAMP - INTERVAL '30 days' AND CURRENT_TIMESTAMP
+            )::numeric /
+            NULLIF((SELECT COUNT(*) 
+                  FROM subscriptions s3
+                  JOIN transaction_statuses ts ON s3.status_id = ts.id
+                  WHERE s3.plan_id IN (SELECT id FROM plans WHERE product_id = p.product_id)
+                  AND ts.status IN ('Ativa', 'Trial')
+                  AND s3.start_date < CURRENT_TIMESTAMP - INTERVAL '30 days'
+                 ), 0)
+        , 0) AS monthly_churn_rate
+    FROM 
+        subscriptions s
+    JOIN 
+        plans p ON s.plan_id = p.id
+    JOIN 
+        products pr ON p.product_id = pr.id
+    GROUP BY 
+        p.product_id, pr.name
+)
+SELECT 
+    product_name,
+    avg_mrr,
+    monthly_churn_rate,
+    CASE 
+        WHEN monthly_churn_rate > 0 THEN 
+            ROUND(avg_mrr / monthly_churn_rate, 2)
+        ELSE 
+            avg_mrr * 36 -- Assume 3 anos como fallback quando churn é zero
+    END AS estimated_ltv,
+    ROUND(avg_mrr / monthly_churn_rate / avg_mrr, 1) AS estimated_lifetime_months
+FROM 
+    subscription_values
+WHERE 
+    avg_mrr > 0
+ORDER BY 
+    estimated_ltv DESC;
+```
+
+
+Este cálculo permite:
+- Estimar o valor total que um cliente gera ao longo de sua vida como assinante
+- Informar decisões sobre quanto investir em aquisição de cliente (CAC)
+- Comparar a rentabilidade de diferentes produtos ou segmentos de cliente
+- Projetar receita de longo prazo do negócio
+
+
+(Ref: Gerenciamento de Assinaturas, ID domain_subscriptions_management_001)
+
+
+## Processos de Retenção e Recuperação
+
+
+### 1. Dunning (Gerenciamento de Falhas de Pagamento)
+
+
+O processo de recuperação de assinaturas com pagamentos falhos:
+
+
+```sql
+-- Identificação de assinaturas em dunning
+SELECT 
+    s.id,
+    s.subscription_id,
+    c.email,
+    c.name,
+    p.name AS plan_name,
+    ts.status,
+    s.next_billing_date,
+    -- Encontra a mais recente falha de pagamento
+    (
+        SELECT MAX(tsh.change_date)
+        FROM transaction_status_history tsh
+        JOIN transaction_statuses ts2 ON tsh.status_id = ts2.id
+        WHERE 
+            tsh.transaction_id IN (
+                SELECT t.id 
+                FROM transactions t 
+                WHERE t.subscription_id = s.id
+            )
+            AND ts2.status = 'Recusada'
+    ) AS last_failed_payment,
+    -- Calcula dias desde a falha
+    EXTRACT(DAY FROM (CURRENT_TIMESTAMP - 
+        (
+            SELECT MAX(tsh.change_date)
+            FROM transaction_status_history tsh
+            JOIN transaction_statuses ts2 ON tsh.status_id = ts2.id
+            WHERE 
+                tsh.transaction_id IN (
+                    SELECT t.id 
+                    FROM transactions t 
+                    WHERE t.subscription_id = s.id
+                )
+                AND ts2.status = 'Recusada'
+        )
+    )) AS days_since_failure
+FROM 
+    subscriptions s
+JOIN 
+    customers c ON s.customer_id = c.id
+JOIN 
+    plans p ON s.plan_id = p.id
+JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+WHERE 
+    ts.status = 'Inadimplente'
+ORDER BY 
+    days_since_failure DESC;
+```
+
+
+Um processo de dunning eficaz envolve:
+
+
+1. **Retentativas automáticas**: Schedule de novas tentativas de cobrança
+   - Dia 1: Notificação inicial + primeira retentativa
+   - Dia 3: Segunda retentativa
+   - Dia 5: Terceira retentativa
+   - Dia 7: Aviso de cancelamento iminente
+   - Dia 10: Cancelamento automático
+
+
+2. **Comunicação escalonada**:
+   - Mensagens com urgência crescente
+   - Múltiplos canais (email, SMS, push)
+   - Lembretes sobre o valor que perderão com o cancelamento
+   - Opções fáceis para atualização do método de pagamento
+
+
+3. **Segmentação de recuperação**:
+   - Tratamento diferenciado baseado no histórico e valor do cliente
+   - Campanhas especiais para clientes de alto valor
+
+
+### 2. Estratégias para Evitar Cancelamentos
+
+
+```sql
+-- Identificação de assinaturas em risco de cancelamento
+SELECT 
+    s.id,
+    c.email,
+    c.name,
+    p.name AS plan_name,
+    s.start_date,
+    s.next_billing_date,
+    -- Indicadores de risco
+    EXTRACT(DAY FROM (CURRENT_TIMESTAMP - s.start_date)) AS subscription_age_days,
+    (
+        SELECT COUNT(*)
+        FROM transactions t
+        JOIN transaction_statuses ts ON t.status_id = ts.id
+        WHERE t.subscription_id = s.id
+        AND ts.status = 'Aprovada'
+    ) AS successful_payments,
+    -- Engajamento (exemplo simplificado - em um sistema real, viria de tabela de logs de uso)
+    (
+        SELECT COUNT(*)
+        FROM user_activity_logs
+        WHERE customer_id = s.customer_id
+        AND activity_date > CURRENT_TIMESTAMP - INTERVAL '30 days'
+    ) AS recent_activity_count
+FROM 
+    subscriptions s
+JOIN 
+    customers c ON s.customer_id = c.id
+JOIN 
+    plans p ON s.plan_id = p.id
+JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+WHERE 
+    ts.status = 'Ativa'
+    AND (
+        -- Baixo engajamento
+        (
+            SELECT COUNT(*)
+            FROM user_activity_logs
+            WHERE customer_id = s.customer_id
+            AND activity_date > CURRENT_TIMESTAMP - INTERVAL '30 days'
+        ) < 3
+        -- OU próximo de renovação
+        OR s.next_billing_date < CURRENT_TIMESTAMP + INTERVAL '7 days'
+    )
+ORDER BY 
+    s.next_billing_date;
+```
+
+
+Táticas eficazes para redução de churn voluntário:
+
+
+1. **Engajamento proativo**:
+   - Monitoramento de uso do produto/serviço
+   - Contato com clientes de baixo engajamento
+   - Onboarding eficaz para novos assinantes
+
+
+2. **Educação de valor**:
+   - Comunicações periódicas sobre benefícios
+   - Histórico de uso/economia/resultados
+   - Lançamento de novos recursos
+
+
+3. **Pesquisas de satisfação**:
+   - Net Promoter Score (NPS) periódico
+   - Identificação precoce de insatisfações
+   - Resolução de problemas antes que levem ao cancelamento
+
+
+4. **Flow de cancelamento otimizado**:
+   - Oferecimento de opções alternativas (downgrade, pausa)
+   - Incentivos de retenção no momento do cancelamento
+   - Captura detalhada de motivos para análise e melhoria contínua
+
+
+(Ref: Gerenciamento de Assinaturas, ID domain_subscriptions_management_001)
+
+
+## Melhores Práticas para Gerenciamento de Assinaturas
+
+
+### 1. Integridade de Dados e Reconciliação
+
+
+```sql
+-- Verificação de consistência entre subscriptions e transactions
+SELECT 
+    s.id,
+    s.subscription_id,
+    s.total_recurrences,
+    (
+        SELECT COUNT(*)
+        FROM transactions t
+        JOIN transaction_statuses ts ON t.status_id = ts.id
+        WHERE t.subscription_id = s.id
+        AND ts.status = 'Aprovada'
+    ) AS counted_successful_transactions,
+    s.total_recurrences - (
+        SELECT COUNT(*)
+        FROM transactions t
+        JOIN transaction_statuses ts ON t.status_id = ts.id
+        WHERE t.subscription_id = s.id
+        AND ts.status = 'Aprovada'
+    ) AS discrepancy
+FROM 
+    subscriptions s
+WHERE 
+    s.total_recurrences <> (
+        SELECT COUNT(*)
+        FROM transactions t
+        JOIN transaction_statuses ts ON t.status_id = ts.id
+        WHERE t.subscription_id = s.id
+        AND ts.status = 'Aprovada'
+    )
+ORDER BY 
+    ABS(s.total_recurrences - (
+        SELECT COUNT(*)
+        FROM transactions t
+        JOIN transaction_statuses ts ON t.status_id = ts.id
+        WHERE t.subscription_id = s.id
+        AND ts.status = 'Aprovada'
+    )) DESC;
+```
+
+
+Práticas recomendadas:
+
+
+1. **Validação de estado consistente**:
+   - Status de assinatura alinhado com seu histórico de pagamentos
+   - Datas coerentes com o estado atual (ex: assinatura cancelada deve ter cancel_date)
+   - Contadores (total_recurrences) precisamente refletem transações reais
+
+
+2. **Reconciliação programada**:
+   - Verificação periódica com dados das plataformas de origem
+   - Processo automatizado de detecção e resolução de discrepâncias
+   - Logs detalhados de exceções e correções
+
+
+3. **Modelagem resiliente**:
+   - Tratamento adequado de cenários excepcionais (estornos parciais, mudança de plano)
+   - Suporte a diferentes políticas de cada plataforma integrada
+
+
+### 2. Estratégias para Upgrade/Downgrade
+
+
+```sql
+-- Implementação simplificada de upgrade de plano
+BEGIN;
+    -- 1. Registrar o término da assinatura atual
+    UPDATE subscriptions
+    SET 
+        status_id = (SELECT id FROM transaction_statuses WHERE status = 'Cancelada Sistema'),
+        cancel_date = CURRENT_TIMESTAMP,
+        end_date = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE 
+        id = [old_subscription_id];
+    
+    -- 2. Registrar a mudança no histórico
+    INSERT INTO subscription_status_history (
+        subscription_id,
+        status_id,
+        reason
+    )
+    VALUES (
+        [old_subscription_id],
+        (SELECT id FROM transaction_statuses WHERE status = 'Cancelada Sistema'),
+        'Cancelada para upgrade de plano'
+    );
+    
+    -- 3. Criar nova assinatura com o plano superior
+    INSERT INTO subscriptions (
+        subscription_id,
+        subscriber_id,
+        initial_transaction_id,
+        customer_id,
+        plan_id,         -- Novo plano
+        payment_gateway,
+        billing_cycle,
+        max_cycles,
+        start_date,      -- Começa agora
+        next_billing_date, -- Calcula próxima cobrança
+        status_id
+        -- outros campos
+    )
+    VALUES (
+        'NEWSUB-' || [id_incremental],
+        (SELECT subscriber_id FROM subscriptions WHERE id = [old_subscription_id]),
+        [new_transaction_id],  -- ID da transação de upgrade
+        (SELECT customer_id FROM subscriptions WHERE id = [old_subscription_id]),
+        [new_plan_id],         -- ID do novo plano
+        (SELECT payment_gateway FROM subscriptions WHERE id = [old_subscription_id]),
+        (SELECT billing_cycle FROM plans WHERE id = [new_plan_id]),
+        (SELECT max_cycles FROM plans WHERE id = [new_plan_id]),
+        CURRENT_TIMESTAMP,     -- Início imediato
+        -- Cálculo da próxima data de cobrança baseado no novo plano
+        CASE
+            WHEN (SELECT recurrence_period FROM plans WHERE id = [new_plan_id]) = 'MONTH' 
+                THEN CURRENT_TIMESTAMP + INTERVAL '1 month'
+            WHEN (SELECT recurrence_period FROM plans WHERE id = [new_plan_id]) = 'YEAR' 
+                THEN CURRENT_TIMESTAMP + INTERVAL '1 year'
+            -- outros casos
+        END,
+        (SELECT id FROM transaction_statuses WHERE status = 'Ativa')
+        -- outros valores
+    );
+    
+    -- 4. Registrar o histórico da nova assinatura
+    INSERT INTO subscription_status_history (
+        subscription_id,
+        status_id,
+        reason
+    )
+    VALUES (
+        currval('subscriptions_id_seq'),  -- ID da nova assinatura
+        (SELECT id FROM transaction_statuses WHERE status = 'Ativa'),
+        'Criada a partir de upgrade da assinatura #' || [old_subscription_id]
+    );
+COMMIT;
+```
+
+
+Considerações para mudanças de plano:
+
+
+1. **Políticas de upgrade/downgrade**:
+   - Aplicação imediata vs. próximo ciclo de cobrança
+   - Ajuste proporcional por dias restantes no ciclo atual
+   - Diferença na cobrança (valor adicional para upgrade, crédito para downgrade)
+
+
+2. **Preservação de histórico**:
+   - Opção de manter a mesma assinatura (atualizando plano) vs. criar nova
+   - Benefícios de assinaturas longevas (fidelidade, avaliação de LTV)
+   - Vinculação entre assinatura antiga e nova para análises
+
+
+3. **Experiência do cliente**:
+   - Comunicação clara sobre mudanças (o que muda, quando, valores)
+   - Confirmações adequadas de alteração
+   - Avisos prévios sobre mudanças de cobrança
+
+
+### 3. Escalabilidade e Performance
+
+
+```sql
+-- Índices recomendados para consultas otimizadas
+CREATE INDEX IF NOT EXISTS idx_subscriptions_customer_id ON subscriptions(customer_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_plan_id ON subscriptions(plan_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status_id ON subscriptions(status_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_next_billing_date ON subscriptions(next_billing_date);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_start_date ON subscriptions(start_date);
+
+
+-- Índice composto para consultas frequentes de assinaturas ativas com data de próxima cobrança
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status_next_billing ON 
+    subscriptions(status_id, next_billing_date) 
+    WHERE status_id IN (SELECT id FROM transaction_statuses WHERE status IN ('Ativa', 'Trial'));
+
+
+-- Índice para histórico de status
+CREATE INDEX IF NOT EXISTS idx_sub_status_history_subscription_id ON 
+    subscription_status_history(subscription_id);
+CREATE INDEX IF NOT EXISTS idx_sub_status_history_status_id ON 
+    subscription_status_history(status_id);
+CREATE INDEX IF NOT EXISTS idx_sub_status_history_change_date ON 
+    subscription_status_history(change_date);
+```
+
+
+Considerações para sistemas de grande escala:
+
+
+1. **Estratégias de particionamento**:
+   - Particionamento por data para tabelas de histórico
+   - Particionamento por estado para a tabela principal (ativas vs. encerradas)
+   - Rotação ou arquivamento de dados históricos antigos
+
+
+2. **Processamento em lote**:
+   - Jobs programados para processamento de grandes volumes (renovações, análises)
+   - Sistemas de fila para operações assíncronas
+   - Retentativas com backoff exponencial para integrações externas
+
+
+3. **Monitoramento de performance**:
+   - Alertas para consultas lentas ou exceções
+   - Monitoramento de tempos de processamento de renovações
+   - Rastreamento de operações de integração com plataformas externas
+
+
+(Ref: Gerenciamento de Assinaturas, ID domain_subscriptions_management_001)
+
+
+## Conclusão
+
+
+O domínio de Gerenciamento de Assinaturas fornece a estrutura fundamental para negócios baseados em receita recorrente, permitindo:
+
+
+1. **Rastreamento completo do ciclo de vida** de cada assinatura, desde a criação até o encerramento
+2. **Visibilidade clara dos estados atuais** de todas as relações de cobrança recorrente
+3. **Dados precisos para métricas essenciais** de negócio recorrente (MRR, churn, LTV)
+4. **Base para processos de retenção** que maximizam o valor de longo prazo dos clientes
+5. **Integração com outros domínios** para uma visão holística do negócio
+
+
+A implementação adequada deste domínio permite que a empresa:
+- Compreenda profundamente a saúde de sua base de assinantes
+- Identifique tendências e oportunidades de crescimento
+- Preveja com precisão receitas futuras
+- Minimize perdas por cancelamento ou inadimplência
+- Otimize continuamente o produto e os planos oferecidos
+
+
+O sucesso de um negócio de assinaturas depende criticamente da qualidade e confiabilidade do sistema de gerenciamento de assinaturas, tornando este domínio uma das fundações mais importantes da infraestrutura de dados da empresa.
+
+
+(Ref: Gerenciamento de Assinaturas, ID domain_subscriptions_management_001)
+```

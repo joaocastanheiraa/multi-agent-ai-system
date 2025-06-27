@@ -44,7 +44,7 @@ MCP_SERVERS_CONFIG = {
         "transport": "stdio"
     },
     "weather": {
-        "url": "http://localhost:8000/mcp",
+        "url": "http://localhost:8001/mcp",
         "transport": "streamable_http"
     }
 }

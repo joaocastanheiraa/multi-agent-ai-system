@@ -25,6 +25,6 @@ echo "📊 Verificando status..."
 docker-compose ps
 
 echo "✅ Deploy concluído!"
-echo "🌐 Acesse: http://localhost:8000"
+echo "🌐 Acesse: http://localhost:8001"
 echo "📊 Logs: docker-compose logs -f"
 echo "🛑 Para parar: docker-compose down"

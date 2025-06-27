@@ -14,7 +14,7 @@ from langchain_openai import ChatOpenAI
 # Configurar caminhos absolutos para os servidores MCP
 current_dir = Path(__file__).parent.absolute()
 math_server_path = current_dir / "math_server.py"
-weather_server_url = "http://localhost:8000/mcp"
+weather_server_url = "http://localhost:8001/mcp"
 
 async def main():
     """Função principal que demonstra a integração MCP + LangGraph"""

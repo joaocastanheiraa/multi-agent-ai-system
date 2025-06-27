@@ -1,0 +1,34 @@
+{
+  "domains_index": {
+    "total_domains": 4,
+    "domains": [
+      {
+        "name": "copywriters",
+        "type": "content_creation",
+        "agents_count": 36,
+        "status": "migrated"
+      },
+      {
+        "name": "apis",
+        "type": "integration_services",
+        "agents_count": 34,
+        "status": "migrated"
+      },
+      {
+        "name": "analytics",
+        "type": "data_analysis",
+        "agents_count": 6,
+        "status": "migrated"
+      },
+      {
+        "name": "knowledge",
+        "type": "knowledge_management",
+        "agents_count": 6,
+        "status": "migrated"
+      }
+    ],
+    "total_agents": 82,
+    "migration_date": "2025-06-25T10:23:58.957817",
+    "next_phase": "langraph_conversion_phase_b"
+  }
+}

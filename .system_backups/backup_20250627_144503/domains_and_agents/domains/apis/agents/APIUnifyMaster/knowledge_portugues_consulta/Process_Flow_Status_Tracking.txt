@@ -1,0 +1,888 @@
+﻿#  `Process_Flow_Status_Tracking.md`:**
+
+
+Fluxo de Processo: Rastreamento de Status de Transações e Assinaturas
+
+
+```markdown
+---
+title: "Fluxo de Processo: Rastreamento de Status de Transações e Assinaturas"
+id: "process_flow_status_tracking_001"
+doc_type: "process_flow"
+doc_version: "1.2"
+date_created: "2025-04-23"
+date_updated: "2025-04-23"
+author: "João Castanheira"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Aprovado"
+environment: "Produção"
+related_docs: [
+  "core_db_architecture_001", 
+  "platform_integration_strategy_001", 
+  "process_flow_purchase_lifecycle_001", 
+  "process_flow_subscription_lifecycle_001", 
+  "analytics_examples_001"
+]
+tables_in_focus: [
+  "transaction_statuses", 
+  "transaction_status_history", 
+  "subscription_status_history", 
+  "transactions", 
+  "subscriptions", 
+  "platform_transaction_payment_history"
+]
+embedding_guide_concepts: [
+  "rastreamento de status", 
+  "histórico de transações", 
+  "histórico de assinaturas", 
+  "normalização de status", 
+  "mapeamento de status", 
+  "auditoria de transações", 
+  "ciclo de vida", 
+  "mudança de estado", 
+  "eventos de plataforma", 
+  "webhooks de status", 
+  "cronologia de transação", 
+  "unificação de status", 
+  "transição de status", 
+  "análise temporal", 
+  "reconciliação de status"
+]
+---
+
+
+# Fluxo de Processo: Rastreamento de Status de Transações e Assinaturas
+
+
+## Visão Geral do Processo
+
+
+O sistema de rastreamento de status foi projetado para registrar, normalizar e analisar todas as transições de estado pelas quais passam transações e assinaturas durante seu ciclo de vida. Este processo é fundamental para manter a integridade histórica dos dados e permitir análises temporais precisas em um ambiente que integra múltiplas plataformas.
+
+
+Através da normalização de status de diferentes fontes para um modelo unificado, o sistema permite que operações e análises sejam realizadas de forma consistente, independentemente da plataforma de origem dos dados. Para cada mudança de status, um registro histórico completo é mantido, criando uma trilha de auditoria detalhada que documenta toda a jornada da transação ou assinatura.
+
+
+Este processo se integra diretamente com o [Fluxo de Ciclo de Vida de Compras](process_flow_purchase_lifecycle_001.md) e o [Fluxo de Ciclo de Vida de Assinaturas](process_flow_subscription_lifecycle_001.md), registrando os eventos críticos que determinam o estado dessas entidades ao longo do tempo.
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+
+
+## Modelo de Dados para Rastreamento de Status
+
+
+### Tabela Central: `transaction_statuses`
+
+
+Esta tabela funciona como um catálogo central que define todos os status normalizados do sistema:
+
+
+```sql
+CREATE TABLE IF NOT EXISTS transaction_statuses (
+    id         SERIAL PRIMARY KEY,
+    status     VARCHAR(50) NOT NULL UNIQUE,                -- Nome do status
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+
+Todos os status normalizados são registrados nesta tabela. Isso cria um ponto único de verdade para os possíveis estados, simplificando consultas e garantindo consistência.
+
+
+### Tabelas de Histórico
+
+
+Duas tabelas mantêm o histórico completo de todas as mudanças de status:
+
+
+```sql
+-- Histórico de status para transações
+CREATE TABLE IF NOT EXISTS transaction_status_history (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    status_id      INTEGER NOT NULL REFERENCES transaction_statuses,
+    change_date    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    reason         TEXT,                                   -- Motivo da mudança
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- Histórico de status para assinaturas
+CREATE TABLE IF NOT EXISTS subscription_status_history (
+    id              SERIAL PRIMARY KEY,
+    subscription_id INTEGER NOT NULL REFERENCES subscriptions ON DELETE CASCADE,
+    status_id       INTEGER NOT NULL REFERENCES transaction_statuses,
+    change_date     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    reason          TEXT,                                   -- Motivo da mudança
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+
+Estas tabelas capturam cada transição de status, registrando não apenas qual foi a mudança, mas também quando e por quê ela ocorreu.
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+
+
+## Diagrama do Fluxo de Processo
+
+
+```mermaid
+graph TD
+    A[Evento de Mudança<br>de Status Recebido] --> B{Normalizar Status<br>da Plataforma}
+    B --> C{Tipo de<br>Entidade?}
+    
+    C -->|Transação|D[Verificar Status<br>Atual na tabela<br>transactions]
+    C -->|Assinatura|E[Verificar Status<br>Atual na tabela<br>subscriptions]
+    
+    D --> F{Status<br>Diferente?}
+    E --> G{Status<br>Diferente?}
+    
+    F -->|Não|H[Ignorar<br>Evento]
+    G -->|Não|H
+    
+    F -->|Sim|I[Atualizar Status<br>na tabela transactions]
+    G -->|Sim|J[Atualizar Status<br>na tabela subscriptions]
+    
+    I --> K[Registrar na tabela<br>transaction_status_history]
+    J --> L[Registrar na tabela<br>subscription_status_history]
+    
+    K --> M[Executar Ações<br>Específicas do Status<br>para Transações]
+    L --> N[Executar Ações<br>Específicas do Status<br>para Assinaturas]
+    
+    B -->|Erro|O[Log de Erro<br>de Normalização]
+```
+
+
+O diagrama ilustra o processo completo desde o recebimento de um evento de mudança de status até o registro no histórico e a execução de ações específicas relacionadas ao novo status.
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+
+
+## Catálogo de Status Normalizados
+
+
+O sistema emprega um conjunto padronizado de status que são consistentes entre todas as plataformas integradas. Estes status são agrupados por tipo de entidade:
+
+
+### Status para Transações
+
+
+| Status Normalizado | Descrição | Ações Comuns |
+|:-------------------|:----------|:-------------|
+| **Pendente** | Transação iniciada, aguardando interação | Monitorar para timeout |
+| **Aguardando Pagamento** | Boleto/PIX gerado, aguardando pagamento | Enviar lembretes |
+| **Processando** | Pagamento em processamento | Monitorar resposta do gateway |
+| **Aprovada** | Pagamento confirmado | Liberar acesso, calcular comissões |
+| **Recusada** | Pagamento rejeitado | Notificar cliente, oferecer alternativas |
+| **Cancelada** | Cancelada antes da conclusão | Limpar recursos reservados |
+| **Reembolsada** | Valor devolvido ao cliente | Ajustar comissões, revogar acesso |
+| **Em Disputa** | Contestação/chargeback aberto | Coletar documentação, monitorar |
+| **Expirada** | Prazo para pagamento vencido | Limpar tentativa de compra |
+
+
+### Status para Assinaturas
+
+
+| Status Normalizado | Descrição | Ações Comuns |
+|:-------------------|:----------|:-------------|
+| **Trial** | Período de teste gratuito | Monitorar conversão para pago |
+| **Ativa** | Assinatura em dia | Processar renovações conforme ciclo |
+| **Inadimplente** | Falha no pagamento recorrente | Tentar recuperação, limitar acesso |
+| **Suspensa** | Temporariamente pausada | Interromper cobranças, manter dados |
+| **Cancelada Cliente** | Cancelada pelo assinante | Confirmar motivo, tentar retenção |
+| **Cancelada Admin** | Cancelada pelo produtor/admin | Documentar motivo, notificar cliente |
+| **Expirada** | Fim do período máximo | Oferecer renovação ou upgrade |
+
+
+O mapeamento detalhado entre os status originais de cada plataforma e estes status normalizados é gerenciado conforme a [Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md).
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+
+
+## Fases do Processo de Rastreamento
+
+
+### Fase 1: Recebimento e Normalização do Evento
+
+
+Quando um evento de mudança de status é recebido, o primeiro passo é normalizá-lo para o modelo unificado do sistema.
+
+
+**Processo:**
+1. Receber evento via webhook ou API
+2. Validar a autenticidade e estrutura do evento
+3. Identificar o tipo de entidade (transação ou assinatura)
+4. Extrair os dados relevantes:
+   - Identificador da entidade na plataforma
+   - Status original na plataforma
+   - Timestamp da mudança
+   - Motivo da mudança (quando disponível)
+5. Normalizar o status usando o mapeamento definido
+
+
+**Exemplo de Normalização:**
+```python
+# Pseudocódigo para normalização de status
+def normalize_status(platform, entity_type, original_status):
+    # Consultar tabela de mapeamento de status
+    normalized_status_id = db.query("""
+        SELECT normalized_status_id 
+        FROM platform_status_mapping 
+        WHERE platform = :platform 
+          AND entity_type = :entity_type 
+          AND original_status = :original_status
+    """, {
+        "platform": platform,
+        "entity_type": entity_type,
+        "original_status": original_status
+    })
+    
+    if not normalized_status_id:
+        log.warning(f"Status não mapeado: {platform}, {entity_type}, {original_status}")
+        # Usar um status padrão apropriado para casos não mapeados
+        normalized_status_id = get_default_status_id(entity_type)
+    
+    return normalized_status_id
+```
+
+
+Esta fase garante que, independentemente da nomenclatura utilizada pela plataforma de origem, o status seja consistentemente interpretado pelo sistema.
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+
+
+### Fase 2: Verificação e Atualização da Entidade Principal
+
+
+Após normalizar o status, o sistema verifica se este representa uma mudança real e, em caso positivo, atualiza a entidade correspondente.
+
+
+**Processo:**
+1. Consultar o status atual da entidade no banco de dados
+2. Comparar com o status normalizado recebido
+3. Se forem diferentes:
+   - Atualizar o status na tabela principal (transactions ou subscriptions)
+   - Atualizar campos relacionados ao status (ex: datas específicas)
+4. Se forem iguais:
+   - Registrar apenas no histórico, sem modificar a entidade
+
+
+**Exemplo para Transações:**
+```sql
+-- Verificar status atual
+SELECT id, status_id 
+FROM transactions
+WHERE transaction_id = :transaction_id_from_platform
+  AND payment_gateway = :platform;
+
+
+-- Se diferente, atualizar
+UPDATE transactions
+SET status_id = :new_status_id,
+    updated_at = CURRENT_TIMESTAMP
+WHERE transaction_id = :transaction_id_from_platform
+  AND payment_gateway = :platform
+  AND status_id != :new_status_id;
+```
+
+
+**Exemplo para Assinaturas:**
+```sql
+-- Atualizar status e campos relacionados
+UPDATE subscriptions
+SET status_id = :new_status_id,
+    updated_at = CURRENT_TIMESTAMP,
+    -- Campos adicionais baseados no status
+    cancel_date = CASE 
+        WHEN :new_status_id IN (SELECT id FROM transaction_statuses WHERE status IN ('Cancelada Cliente', 'Cancelada Admin'))
+        THEN CURRENT_TIMESTAMP
+        ELSE cancel_date
+    END,
+    end_date = CASE 
+        WHEN :new_status_id IN (SELECT id FROM transaction_statuses WHERE status IN ('Cancelada Cliente', 'Cancelada Admin', 'Expirada'))
+        THEN CURRENT_TIMESTAMP
+        ELSE end_date
+    END
+WHERE subscription_id = :subscription_id_from_platform
+  AND payment_gateway = :platform
+  AND status_id != :new_status_id;
+```
+
+
+Esta fase garante que o estado atual das entidades esteja sempre atualizado, refletindo a informação mais recente.
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+
+
+### Fase 3: Registro no Histórico
+
+
+Cada mudança de status é registrada nas tabelas de histórico correspondentes, criando um registro cronológico completo.
+
+
+**Processo:**
+1. Determinar o ID interno da entidade (transação ou assinatura)
+2. Preparar os dados para o registro histórico:
+   - ID da entidade
+   - ID do status normalizado
+   - Data e hora da mudança
+   - Motivo da mudança
+3. Inserir o registro na tabela apropriada
+
+
+**Exemplo para Transações:**
+```sql
+-- Registrar histórico de status
+INSERT INTO transaction_status_history (
+    transaction_id,
+    status_id,
+    change_date,
+    reason,
+    created_at,
+    updated_at
+)
+VALUES (
+    :internal_transaction_id,  -- ID interno da transação
+    :normalized_status_id,     -- ID do status normalizado
+    :change_timestamp,         -- Timestamp do evento (da plataforma)
+    :change_reason,            -- Motivo da mudança
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+);
+```
+
+
+**Exemplo para Assinaturas:**
+```sql
+-- Registrar histórico de status
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    change_date,
+    reason,
+    created_at,
+    updated_at
+)
+VALUES (
+    :internal_subscription_id,  -- ID interno da assinatura
+    :normalized_status_id,      -- ID do status normalizado
+    :change_timestamp,          -- Timestamp do evento (da plataforma)
+    :change_reason,             -- Motivo da mudança
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+);
+```
+
+
+Este histórico completo permite auditoria, análise de tendências e diagnóstico de problemas ao longo do tempo.
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+
+
+### Fase 4: Ações Específicas por Status
+
+
+Diferentes status podem desencadear ações adicionais específicas no sistema.
+
+
+**Exemplos para Transações:**
+
+
+Para status **Aprovada**:
+```sql
+-- Registrar detalhes do pagamento
+INSERT INTO platform_transaction_payment_history (
+    transaction_id,
+    payment_method,
+    payment_type,
+    value,
+    payment_date,
+    card_brand,
+    card_last_digits,
+    created_at,
+    updated_at
+)
+VALUES (
+    :internal_transaction_id,
+    :payment_method,
+    :payment_type,
+    :transaction_amount,
+    :payment_timestamp,
+    :card_brand,
+    :last_digits,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+);
+
+
+-- Calcular e registrar comissões (processo separado)
+CALL calculate_and_register_commissions(:internal_transaction_id);
+```
+
+
+Para status **Reembolsada**:
+```sql
+-- Registrar o reembolso nos detalhes de pagamento
+INSERT INTO platform_transaction_payment_history (
+    transaction_id,
+    payment_method,
+    payment_type,
+    value,
+    payment_date,
+    metadata,
+    created_at,
+    updated_at
+)
+VALUES (
+    :internal_transaction_id,
+    'refund',
+    'REFUND',
+    -:refund_amount,  -- Valor negativo para indicar reembolso
+    :refund_timestamp,
+    jsonb_build_object('refund_reason', :reason, 'refund_id', :refund_id),
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+);
+
+
+-- Processar estorno de comissões (se aplicável)
+CALL process_commission_refunds(:internal_transaction_id);
+```
+
+
+**Exemplos para Assinaturas:**
+
+
+Para status **Inadimplente**:
+```sql
+-- Registrar tentativa de cobrança falha
+INSERT INTO subscription_payment_attempts (
+    subscription_id,
+    attempt_date,
+    status,
+    failure_reason,
+    created_at
+)
+VALUES (
+    :internal_subscription_id,
+    :attempt_timestamp,
+    'failed',
+    :failure_reason,
+    CURRENT_TIMESTAMP
+);
+
+
+-- Iniciar fluxo de recuperação (se configurado)
+IF subscription_has_recovery_enabled(:internal_subscription_id) THEN
+    CALL schedule_recovery_attempt(:internal_subscription_id);
+END IF;
+```
+
+
+Estas ações específicas garantem que o sistema reaja apropriadamente a cada mudança de status, mantendo a consistência dos dados e acionando processos complementares quando necessário.
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+
+
+## Análises de Status e Transições
+
+
+O sistema de rastreamento de status permite análises detalhadas que oferecem insights valiosos sobre o ciclo de vida de transações e assinaturas.
+
+
+### 1. Histórico Completo de uma Entidade
+
+
+```sql
+-- Histórico completo de status de uma transação
+SELECT 
+    tsh.change_date,
+    ts.status AS status_name,
+    tsh.reason
+FROM 
+    transaction_status_history tsh
+JOIN 
+    transaction_statuses ts ON tsh.status_id = ts.id
+WHERE 
+    tsh.transaction_id = :internal_transaction_id
+ORDER BY 
+    tsh.change_date ASC;
+```
+
+
+Esta consulta exibe toda a jornada de uma transação específica, mostrando cada status pelo qual ela passou, quando ocorreu a mudança e por quê.
+
+
+### 2. Análise de Tempo em Status
+
+
+```sql
+-- Tempo médio em cada status para transações recentes
+WITH status_periods AS (
+    SELECT 
+        t.id,
+        tsh1.status_id,
+        ts.status,
+        tsh1.change_date AS start_date,
+        LEAD(tsh1.change_date) OVER (
+            PARTITION BY t.id 
+            ORDER BY tsh1.change_date
+        ) AS end_date
+    FROM 
+        transactions t
+    JOIN 
+        transaction_status_history tsh1 ON t.id = tsh1.transaction_id
+    JOIN 
+        transaction_statuses ts ON tsh1.status_id = ts.id
+    WHERE 
+        t.created_at >= CURRENT_DATE - INTERVAL '30 days'
+)
+SELECT 
+    status,
+    COUNT(*) AS transitions,
+    AVG(
+        EXTRACT(EPOCH FROM (
+            COALESCE(end_date, CURRENT_TIMESTAMP) - start_date
+        ))
+    ) / 60 AS avg_minutes_in_status
+FROM 
+    status_periods
+GROUP BY 
+    status
+ORDER BY 
+    avg_minutes_in_status DESC;
+```
+
+
+Esta análise ajuda a identificar possíveis gargalos no processo, mostrando quanto tempo, em média, as transações permanecem em cada status.
+
+
+### 3. Análise de Fluxo de Status
+
+
+```sql
+-- Análise de fluxo: De quais status -> para quais status
+SELECT 
+    ts_from.status AS from_status,
+    ts_to.status AS to_status,
+    COUNT(*) AS transition_count,
+    ROUND(
+        COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY ts_from.status),
+        2
+    ) AS percentage_of_outgoing
+FROM 
+    transaction_status_history tsh1
+JOIN 
+    transaction_status_history tsh2 ON 
+        tsh1.transaction_id = tsh2.transaction_id AND
+        tsh2.change_date > tsh1.change_date AND
+        NOT EXISTS (
+            SELECT 1 FROM transaction_status_history tsh3
+            WHERE tsh3.transaction_id = tsh1.transaction_id
+              AND tsh3.change_date > tsh1.change_date
+              AND tsh3.change_date < tsh2.change_date
+        )
+JOIN 
+    transaction_statuses ts_from ON tsh1.status_id = ts_from.id
+JOIN 
+    transaction_statuses ts_to ON tsh2.status_id = ts_to.id
+WHERE 
+    tsh1.change_date >= CURRENT_DATE - INTERVAL '90 days'
+GROUP BY 
+    ts_from.status, ts_to.status
+ORDER BY 
+    ts_from.status, transition_count DESC;
+```
+
+
+Esta análise mapeia os caminhos mais comuns entre status, mostrando para onde uma transação geralmente vai após estar em um determinado status.
+
+
+### 4. Comparação de Conversão Entre Plataformas
+
+
+```sql
+-- Comparação de taxa de aprovação entre plataformas
+WITH transaction_outcomes AS (
+    SELECT 
+        t.payment_gateway,
+        t.id,
+        CASE 
+            WHEN EXISTS (
+                SELECT 1 FROM transaction_status_history tsh
+                JOIN transaction_statuses ts ON tsh.status_id = ts.id
+                WHERE tsh.transaction_id = t.id
+                AND ts.status = 'Aprovada'
+            ) THEN 1
+            ELSE 0
+        END AS converted
+    FROM 
+        transactions t
+    WHERE 
+        t.created_at >= CURRENT_DATE - INTERVAL '30 days'
+)
+SELECT 
+    payment_gateway,
+    COUNT(*) AS total_transactions,
+    SUM(converted) AS approved_transactions,
+    ROUND(SUM(converted) * 100.0 / COUNT(*), 2) AS approval_rate
+FROM 
+    transaction_outcomes
+GROUP BY 
+    payment_gateway
+ORDER BY 
+    approval_rate DESC;
+```
+
+
+Esta consulta permite comparar a eficácia das diferentes plataformas, mostrando qual tem a maior taxa de conversão de transações pendentes para aprovadas.
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+
+
+## Desafios e Soluções
+
+
+### 1. Eventos Fora de Ordem
+
+
+**Desafio:** Webhooks e notificações de API podem chegar em ordem diferente da sequência real dos eventos.
+
+
+**Solução:**
+- Armazenar e usar os timestamps originais dos eventos, não o momento de recebimento
+- Criar lógica de verificação temporal antes de aplicar mudanças
+- Manter o histórico completo mesmo para eventos recebidos fora de ordem
+
+
+**Implementação:**
+```sql
+-- Verificar se o evento recebido é mais recente que o último registrado
+INSERT INTO transaction_status_history (transaction_id, status_id, change_date, reason)
+SELECT 
+    :internal_transaction_id, 
+    :new_status_id,
+    :event_timestamp,
+    :reason
+WHERE 
+    NOT EXISTS (
+        SELECT 1 FROM transaction_status_history 
+        WHERE transaction_id = :internal_transaction_id
+        AND change_date > :event_timestamp
+    );
+```
+
+
+### 2. Status Específicos de Plataforma
+
+
+**Desafio:** Algumas plataformas têm status únicos que não possuem equivalente direto no modelo normalizado.
+
+
+**Solução:**
+- Manter o status original como metadado para casos específicos
+- Implementar mapeamentos flexíveis que podem evoluir com o tempo
+- Para status verdadeiramente únicos, criar status normalizados específicos se necessário
+
+
+### 3. Reconciliação de Status
+
+
+**Desafio:** Status podem ficar dessincronizados entre o sistema e as plataformas de origem.
+
+
+**Solução:**
+- Implementar verificações periódicas via APIs das plataformas
+- Rotinas de reconciliação que comparam status atual com a plataforma
+- Processo para resolução automática de discrepâncias
+
+
+**Processo de Reconciliação:**
+```python
+# Pseudocódigo para reconciliação
+def reconcile_transaction_status(transaction_id, platform):
+    # Obter status atual no nosso sistema
+    current_status = get_current_status(transaction_id, platform)
+    
+    # Consultar API da plataforma para status atual lá
+    platform_status = get_platform_status(transaction_id, platform)
+    
+    # Normalizar o status da plataforma
+    normalized_status = normalize_status(platform, "transaction", platform_status)
+    
+    # Se diferente, atualizar nosso sistema
+    if current_status != normalized_status:
+        update_transaction_status(
+            transaction_id, 
+            platform, 
+            normalized_status,
+            "Atualização automática via reconciliação"
+        )
+        
+        log.info(f"Reconciliação: transação {transaction_id} atualizada de {current_status} para {normalized_status}")
+```
+
+
+### 4. Performance em Consultas Históricas
+
+
+**Desafio:** Com o crescimento do histórico, consultas podem se tornar lentas.
+
+
+**Solução:**
+- Índices otimizados nas tabelas de histórico
+- Particionamento por data para históricos muito grandes
+- Views materializadas para análises comuns
+
+
+**Índices Recomendados:**
+```sql
+-- Índices para melhorar performance em consultas históricas
+CREATE INDEX idx_tsh_transaction_change_date ON transaction_status_history(transaction_id, change_date);
+CREATE INDEX idx_tsh_status_change_date ON transaction_status_history(status_id, change_date);
+CREATE INDEX idx_ssh_subscription_change_date ON subscription_status_history(subscription_id, change_date);
+```
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+
+
+## Integração com Outros Sistemas
+
+
+O rastreamento de status se integra com diversos outros componentes do sistema:
+
+
+### 1. Notificações e Alertas
+
+
+Mudanças de status específicas podem acionar notificações automáticas para:
+- Clientes (ex: "Seu pagamento foi aprovado")
+- Administradores (ex: "Aumento anormal de transações recusadas")
+- Afiliados (ex: "Comissão confirmada")
+
+
+```sql
+-- Exemplo: Identificar transições que devem gerar notificações
+SELECT 
+    t.id, t.transaction_id, t.customer_id,
+    ts_new.status AS new_status
+FROM 
+    transaction_status_history tsh
+JOIN 
+    transactions t ON tsh.transaction_id = t.id
+JOIN 
+    transaction_statuses ts_new ON tsh.status_id = ts_new.id
+WHERE 
+    tsh.id = :latest_history_id
+    AND ts_new.status IN ('Aprovada', 'Reembolsada', 'Recusada');
+```
+
+
+### 2. Automações de Recuperação
+
+
+Status como "Recusada" ou "Inadimplente" podem acionar fluxos automáticos de recuperação:
+- Tentativas alternativas de pagamento
+- Envio de lembretes
+- Ofertas de descontos para retenção
+
+
+### 3. Análise de Risco
+
+
+Padrões de transição de status são importantes para análise de risco:
+- Contas com muitas transações recusadas
+- Padrões anormais de reembolso
+- Tempo médio entre aprovação e contestação
+
+
+### 4. Business Intelligence
+
+
+Os dados de histórico de status alimentam relatórios de BI essenciais:
+- Funil de conversão de vendas
+- Taxas de retenção de assinaturas
+- Tempo de ciclo para cada fase da venda
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+
+
+## Melhores Práticas para Rastreamento de Status
+
+
+### 1. Documentação de Mudanças
+
+
+Sempre que possível, registre o motivo da mudança de status:
+- Para mudanças automáticas, use descrições padronizadas
+- Para mudanças manuais, exija um comentário explicativo
+- Para reconciliações, indique a fonte da verdade
+
+
+### 2. Granularidade de Timestamps
+
+
+Use timestamps com fuso horário (TIMESTAMP WITH TIME ZONE) para evitar ambiguidades:
+- Armazene em UTC internamente
+- Preserve o timestamp original do evento quando disponível
+- Mantenha precisão de milissegundos para ordenação correta
+
+
+### 3. Design para Auditoria
+
+
+O sistema de rastreamento deve servir como fonte confiável para auditoria:
+- Nunca atualize registros históricos, apenas adicione novos
+- Mantenha metadados suficientes para reconstruir a cronologia exata
+- Registre a origem da mudança (sistema, API, usuário, reconciliação)
+
+
+### 4. Monitoramento Proativo
+
+
+Implemente alertas para comportamentos anormais no sistema de status:
+- Transações presas em determinado status por tempo excessivo
+- Oscilações frequentes entre status (possível instabilidade)
+- Aumentos súbitos em status negativos (recusas, reembolsos)
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+
+
+## Conclusão
+
+
+O sistema de rastreamento de status é um componente fundamental da arquitetura do banco de dados, fornecendo:
+
+
+1. **Visibilidade completa** do ciclo de vida de transações e assinaturas
+2. **Normalização** de terminologias distintas das várias plataformas
+3. **Trilha de auditoria** detalhada para todas as mudanças de estado
+4. **Base para análises** temporais e de performance
+5. **Fundamento para automações** acionadas por mudanças de status
+
+
+A abordagem implementada garante que o sistema mantenha um registro histórico preciso e completo, independentemente da plataforma de origem dos dados, enquanto oferece um modelo padronizado que simplifica consultas e análises.
+
+
+O rastreamento de status, em conjunto com os outros componentes do sistema, cria um ecossistema de dados coeso e consistente que permite rastrear e gerenciar efetivamente todo o ciclo de vida financeiro das transações de negócio.
+
+
+(Ref: Rastreamento de Status, ID process_flow_status_tracking_001)
+```

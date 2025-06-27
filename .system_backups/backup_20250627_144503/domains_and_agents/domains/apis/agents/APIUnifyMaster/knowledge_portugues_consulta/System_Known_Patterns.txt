@@ -1,0 +1,1588 @@
+﻿# `System_Known_Patterns.md`:
+
+
+```markdown
+---
+title: "Padrões Conhecidos e Respostas Canônicas: Hotmart-Kiwify Database"
+id: "system_known_patterns_001"
+doc_type: "meta_learning"
+doc_version: "1.0"
+date_created: "2025-04-23"
+date_updated: "2025-04-23"
+author: "Equipe de Documentação"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Ativo"
+environment: "Todos"
+related_docs: ["core_db_architecture_001", "core_db_design_principles_001", "core_db_glossary_001", "system_learning_evolution_001"]
+tables_in_focus: ["transactions", "subscriptions", "customers", "plans", "platform_commission", "transaction_status_history", "subscription_status_history"]
+embedding_guide_concepts: ["padrões de consulta", "perguntas frequentes", "resposta canônica", "fluxos de trabalho comuns", "casos de uso recorrentes", "melhores práticas", "troubleshooting", "resolução de problemas", "FAQ", "cenários típicos", "perguntas complexas", "resposta padronizada", "guia de referência rápida", "templates de resposta", "explicações padronizadas", "anti-padrões", "perguntas mal formuladas", "erros comuns", "misconceptions", "informações complementares", "contexto adicional", "refinamento de resposta", "exemplos canônicos", "processos padrão", "fluxos de negócio"]
+---
+
+
+# Padrões Conhecidos e Respostas Canônicas: Hotmart-Kiwify Database
+
+
+## Visão Geral
+
+
+Este documento registra padrões recorrentes de consulta e suas respostas canônicas para o sistema RAG do banco de dados `joaocastanheira_bancodedados`. Ele serve como um repositório de conhecimento cristalizado sobre os casos de uso mais comuns, perguntas frequentes e melhores práticas que emergem do uso do sistema.
+
+
+Diferente de uma simples FAQ, este documento:
+1. Captura o **contexto completo** necessário para responder às perguntas mais frequentes
+2. Fornece **respostas padronizadas e revisadas** que podem ser usadas como referência
+3. Documenta **fluxos de trabalho típicos** que envolvem múltiplas operações ou consultas
+4. Identifica **anti-padrões e misconceptions** comuns entre os usuários
+5. Evolui de forma contínua à medida que novos padrões são identificados
+
+
+As respostas canônicas aqui registradas refletem não apenas o conhecimento técnico correto, mas também a forma mais eficaz de comunicar esse conhecimento aos usuários.
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+## Perguntas Frequentes e Respostas Canônicas
+
+
+### Gerenciamento de Transações
+
+
+#### "Como identificar se uma transação faz parte de uma assinatura recorrente?"
+
+
+**Resposta Canônica:**
+
+
+Para identificar se uma transação está associada a uma assinatura, você pode verificar dois campos na tabela `transactions`:
+
+
+1. O campo `is_subscription` que será `TRUE` para transações de assinatura
+2. O campo `subscription_id` que contém a referência à assinatura associada
+
+
+Uma transação de assinatura também terá o campo `recurrence_number`, indicando qual cobrança da assinatura ela representa (1 para a primeira, 2 para a segunda, etc.).
+
+
+**Exemplo SQL para identificação:**
+
+
+```sql
+SELECT 
+    t.id,
+    t.transaction_id AS external_id,
+    t.is_subscription,
+    t.subscription_id,
+    t.recurrence_number,
+    t.order_date,
+    s.subscription_id AS subscription_external_id,
+    p.name AS plan_name
+FROM 
+    transactions t
+LEFT JOIN 
+    subscriptions s ON t.subscription_id = s.id
+LEFT JOIN 
+    plans p ON s.plan_id = p.id
+WHERE 
+    t.transaction_id = 'SUA_TRANSACTION_ID_AQUI'
+    -- ou: t.customer_id = (SELECT id FROM customers WHERE email = 'cliente@exemplo.com')
+```
+
+
+**Observações Adicionais:**
+- A primeira transação de uma assinatura terá `recurrence_number = 1`
+- Para consultar todas as transações de uma assinatura específica, filtre pelo `subscription_id`
+- Transações anteriores a uma alteração de plano terão o `plan_id` original, não o atual
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+#### "Como rastrear um reembolso ou estorno no sistema?"
+
+
+**Resposta Canônica:**
+
+
+Reembolsos e estornos são registrados de três formas complementares no sistema:
+
+
+1. **Status da Transação:** A transação original terá seu `status_id` alterado para o ID correspondente a 'Reembolsada' (para reembolsos voluntários) ou 'Chargeback Confirmado' (para estornos contestados pelo cliente).
+
+
+2. **Histórico de Status:** Um novo registro será criado na tabela `transaction_status_history` documentando a mudança, incluindo a data e o motivo.
+
+
+3. **Estorno de Comissões:** Quando uma transação é reembolsada, registros de estorno de comissão são criados na tabela `platform_commission` com `source` contendo 'REFUND' e valores negativos para representar o estorno.
+
+
+**Exemplo SQL para verificar o histórico de uma transação reembolsada:**
+
+
+```sql
+-- 1. Verificar status atual
+SELECT 
+    t.id,
+    t.transaction_id AS external_id,
+    ts.status AS current_status,
+    t.order_date,
+    t.offer_price
+FROM 
+    transactions t
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    t.transaction_id = 'SUA_TRANSACTION_ID_AQUI';
+
+
+-- 2. Verificar histórico de mudanças de status
+SELECT 
+    tsh.change_date,
+    ts.status,
+    tsh.reason
+FROM 
+    transaction_status_history tsh
+JOIN 
+    transaction_statuses ts ON tsh.status_id = ts.id
+JOIN 
+    transactions t ON tsh.transaction_id = t.id
+WHERE 
+    t.transaction_id = 'SUA_TRANSACTION_ID_AQUI'
+ORDER BY 
+    tsh.change_date;
+
+
+-- 3. Verificar estornos de comissão
+SELECT 
+    pc.amount,
+    pc.source,
+    pc.created_at,
+    cp.name AS participant_name
+FROM 
+    platform_commission pc
+JOIN 
+    commission_participants cp ON pc.participant_id = cp.id
+JOIN 
+    transactions t ON pc.transaction_id = t.id
+WHERE 
+    t.transaction_id = 'SUA_TRANSACTION_ID_AQUI'
+    AND pc.source LIKE '%REFUND%'
+ORDER BY 
+    pc.created_at;
+```
+
+
+**Observações Adicionais:**
+- Reembolsos parciais seguem o mesmo fluxo, mas com valores proporcionais
+- O tempo entre o reembolso e o estorno das comissões pode variar conforme a plataforma
+- Transações com chargeback confirmado geralmente seguem um fluxo adicional de disputa
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+### Gerenciamento de Assinaturas
+
+
+#### "Como identificar assinaturas canceladas e o motivo do cancelamento?"
+
+
+**Resposta Canônica:**
+
+
+Assinaturas canceladas podem ser identificadas pelo `status_id` na tabela `subscriptions`, que estará vinculado a um dos seguintes status: 'Cancelada pelo Cliente', 'Cancelada por Inadimplência', ou 'Cancelada pela Plataforma'.
+
+
+Para obter o motivo específico do cancelamento, é necessário consultar a tabela `subscription_status_history`, que registra o histórico de todas as mudanças de status, incluindo o motivo fornecido no momento do cancelamento.
+
+
+**Exemplo SQL para listar assinaturas canceladas com motivos:**
+
+
+```sql
+-- Listar assinaturas canceladas com informações detalhadas
+SELECT 
+    s.id,
+    s.subscription_id AS external_id,
+    c.name AS customer_name,
+    c.email AS customer_email,
+    p.name AS plan_name,
+    ts.status AS current_status,
+    s.start_date,
+    s.cancel_date,
+    -- Busca o motivo do cancelamento no histórico de status
+    (SELECT ssh.reason 
+     FROM subscription_status_history ssh
+     WHERE ssh.subscription_id = s.id
+     AND ssh.status_id = s.status_id
+     ORDER BY ssh.change_date DESC
+     LIMIT 1) AS cancellation_reason
+FROM 
+    subscriptions s
+JOIN 
+    customers c ON s.customer_id = c.id
+JOIN 
+    plans p ON s.plan_id = p.id
+JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+WHERE 
+    ts.status IN ('Cancelada pelo Cliente', 'Cancelada por Inadimplência', 'Cancelada pela Plataforma')
+    -- Filtros opcionais:
+    -- AND s.cancel_date BETWEEN '2023-01-01' AND '2023-11-30'
+    -- AND p.name LIKE '%Premium%'
+ORDER BY 
+    s.cancel_date DESC;
+```
+
+
+**Exemplo SQL para análise de motivos de cancelamento:**
+
+
+```sql
+-- Análise agregada dos motivos de cancelamento
+SELECT 
+    ts.status AS cancellation_type,
+    ssh.reason,
+    COUNT(*) AS total_cancellations,
+    ROUND(AVG(EXTRACT(DAY FROM (s.cancel_date - s.start_date))), 1) AS avg_days_as_subscriber
+FROM 
+    subscriptions s
+JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+JOIN 
+    subscription_status_history ssh ON s.id = ssh.subscription_id AND ssh.status_id = s.status_id
+WHERE 
+    ts.status IN ('Cancelada pelo Cliente', 'Cancelada por Inadimplência', 'Cancelada pela Plataforma')
+    AND s.cancel_date BETWEEN '2023-01-01' AND '2023-11-30'
+GROUP BY 
+    ts.status, ssh.reason
+ORDER BY 
+    total_cancellations DESC;
+```
+
+
+**Observações Adicionais:**
+- Os motivos de cancelamento podem variar dependendo da plataforma de origem
+- Para cancelamentos por inadimplência, verifique também a última transação fracassada
+- A data de cancelamento (`cancel_date`) indica quando o cancelamento foi solicitado, enquanto `end_date` indica quando a assinatura efetivamente terminou ou terminará
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+#### "Como funciona o período de trial em assinaturas?"
+
+
+**Resposta Canônica:**
+
+
+O período de trial (teste gratuito) é gerenciado principalmente através da tabela `plans`, que contém o campo `trial_days` definindo a duração em dias do período de teste.
+
+
+Quando uma assinatura com trial é criada:
+
+
+1. O registro é inserido na tabela `subscriptions` com status 'Ativa' ou 'Trial'
+2. A data `start_date` reflete o início do período de trial
+3. A primeira cobrança é agendada para após o término do trial, refletido em `next_billing_date`
+4. A primeira transação só é gerada após o término do trial, se o cliente não cancelar antes
+
+
+**Exemplo SQL para identificar assinaturas em período de trial:**
+
+
+```sql
+-- Identificar assinaturas atualmente em período de trial
+SELECT 
+    s.id,
+    s.subscription_id AS external_id,
+    c.name AS customer_name,
+    c.email AS customer_email,
+    p.name AS plan_name,
+    p.trial_days,
+    s.start_date AS trial_start_date,
+    (s.start_date + (p.trial_days * INTERVAL '1 day')) AS trial_end_date,
+    s.next_billing_date AS first_charge_date,
+    CASE 
+        WHEN CURRENT_DATE BETWEEN s.start_date AND (s.start_date + (p.trial_days * INTERVAL '1 day')) THEN 'Em Trial'
+        ELSE 'Trial Concluído'
+    END AS trial_status
+FROM 
+    subscriptions s
+JOIN 
+    customers c ON s.customer_id = c.id
+JOIN 
+    plans p ON s.plan_id = p.id
+JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+WHERE 
+    p.trial_days > 0
+    AND ts.status IN ('Ativa', 'Trial') -- Dependendo da implementação da plataforma
+    AND (
+        -- Ainda está em trial
+        CURRENT_DATE <= (s.start_date + (p.trial_days * INTERVAL '1 day'))
+        -- OU trial terminou nos últimos 7 dias
+        OR (s.start_date + (p.trial_days * INTERVAL '1 day')) BETWEEN (CURRENT_DATE - INTERVAL '7 days') AND CURRENT_DATE
+    )
+ORDER BY 
+    (s.start_date + (p.trial_days * INTERVAL '1 day'));
+```
+
+
+**Observações Adicionais:**
+- Se o cliente cancelar durante o trial, o `status_id` mudará para 'Cancelada pelo Cliente' sem gerar transação
+- A implementação exata do trial pode variar entre plataformas (Hotmart vs Kiwify)
+- Alguns planos podem oferecer "trial pago" com valor reduzido, que gerará uma transação inicial
+- Para relatórios, assinaturas canceladas durante o trial geralmente não são contabilizadas como churn
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+### Análise de Dados e Métricas
+
+
+#### "Como calcular o MRR (Monthly Recurring Revenue) corretamente?"
+
+
+**Resposta Canônica:**
+
+
+O MRR (Monthly Recurring Revenue ou Receita Mensal Recorrente) é uma métrica crucial em negócios de assinatura. Para calculá-lo corretamente usando o banco de dados `joaocastanheira_bancodedados`, é necessário:
+
+
+1. **Normalizar todos os planos para uma base mensal**:
+   - Planos anuais são divididos por 12
+   - Planos trimestrais são divididos por 3
+   - Planos semestrais são divididos por 6
+   - Planos semanais são multiplicados por 4.33 (média de semanas por mês)
+
+
+2. **Incluir apenas assinaturas ativas** (status = 'Ativa')
+
+
+3. **Calcular para um ponto específico no tempo** (ex: último dia do mês)
+
+
+**Exemplo SQL para calcular o MRR atual:**
+
+
+```sql
+-- Cálculo do MRR atual
+SELECT 
+    SUM(
+        CASE 
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            WHEN p.recurrence_period = 'QUARTER' THEN p.price / 3
+            WHEN p.recurrence_period = 'SEMIANNUAL' THEN p.price / 6
+            WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33
+            ELSE p.price -- Assume periodicidade mensal como padrão
+        END
+    ) AS current_mrr,
+    COUNT(DISTINCT s.id) AS active_subscriptions,
+    SUM(
+        CASE 
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            WHEN p.recurrence_period = 'QUARTER' THEN p.price / 3
+            WHEN p.recurrence_period = 'SEMIANNUAL' THEN p.price / 6
+            WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33
+            ELSE p.price
+        END
+    ) / NULLIF(COUNT(DISTINCT s.id), 0) AS average_mrr_per_subscription
+FROM 
+    subscriptions s
+JOIN 
+    plans p ON s.plan_id = p.id
+JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+WHERE 
+    ts.status = 'Ativa'
+    AND p.currency_code = 'BRL'; -- Filtrar por moeda para consistência
+```
+
+
+**Exemplo SQL para calcular a evolução do MRR ao longo do tempo:**
+
+
+```sql
+-- Evolução do MRR mês a mês
+WITH RECURSIVE monthly_dates AS (
+    -- Gerar sequência de datas mensais para análise histórica
+    SELECT generate_series(
+        DATE_TRUNC('month', '2023-01-01'::date),
+        DATE_TRUNC('month', CURRENT_DATE),
+        '1 month'::interval
+    ) AS month_date
+),
+active_subscriptions_by_month AS (
+    -- Para cada mês, determinar quais assinaturas estavam ativas
+    SELECT 
+        DATE_TRUNC('month', d.month_date)::date AS month,
+        s.id AS subscription_id,
+        p.price AS original_price,
+        p.recurrence_period,
+        CASE 
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            WHEN p.recurrence_period = 'QUARTER' THEN p.price / 3
+            WHEN p.recurrence_period = 'SEMIANNUAL' THEN p.price / 6
+            WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33
+            ELSE p.price -- Assume periodicidade mensal como padrão
+        END AS normalized_monthly_revenue
+    FROM 
+        monthly_dates d
+    CROSS JOIN subscriptions s
+    JOIN plans p ON s.plan_id = p.id
+    JOIN transaction_statuses ts ON s.status_id = ts.id
+    WHERE 
+        -- Assinatura estava ativa no último dia do mês
+        s.start_date <= (d.month_date + INTERVAL '1 month - 1 day')
+        AND (s.end_date IS NULL OR s.end_date >= (d.month_date + INTERVAL '1 month - 1 day'))
+        -- Consideramos o status atual para simplificar, mas idealmente
+        -- deveria verificar o status no momento específico do mês
+        AND ts.status = 'Ativa'
+        AND p.currency_code = 'BRL'
+)
+SELECT 
+    month,
+    COUNT(DISTINCT subscription_id) AS active_subscriptions,
+    ROUND(SUM(normalized_monthly_revenue), 2) AS mrr,
+    ROUND(SUM(normalized_monthly_revenue) * 12, 2) AS arr -- Annual Recurring Revenue
+FROM 
+    active_subscriptions_by_month
+GROUP BY 
+    month
+ORDER BY 
+    month;
+```
+
+
+**Observações Adicionais:**
+- O MRR deve sempre ser calculado em uma única moeda (BRL nos exemplos)
+- Para empresas com receitas em múltiplas moedas, é necessário implementar conversão
+- O "New MRR" representa a receita de novas assinaturas
+- O "Expansion MRR" representa aumento de receita por upgrades de plano
+- O "Contraction MRR" representa redução de receita por downgrades
+- O "Churned MRR" representa receita perdida por cancelamentos
+- O "Net New MRR" é a soma de New + Expansion - Contraction - Churned
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+#### "Como calcular corretamente a taxa de churn?"
+
+
+**Resposta Canônica:**
+
+
+A taxa de churn (cancelamento) é uma métrica crucial para negócios de assinatura, representando a proporção de clientes ou receita perdida em um período. Existem duas formas principais de calcular o churn:
+
+
+1. **Churn de Clientes**: Percentual de assinantes que cancelaram em relação ao total de assinantes ativos no início do período.
+
+
+2. **Churn de Receita**: Percentual de receita recorrente (MRR) perdida por cancelamentos em relação ao MRR total no início do período.
+
+
+**Exemplo SQL para churn de clientes mensal:**
+
+
+```sql
+-- Cálculo de churn de clientes por mês
+WITH monthly_periods AS (
+    -- Gerar períodos mensais para análise
+    SELECT 
+        DATE_TRUNC('month', date_series)::date AS period_start,
+        (DATE_TRUNC('month', date_series) + INTERVAL '1 month - 1 day')::date AS period_end
+    FROM 
+        GENERATE_SERIES(
+            DATE_TRUNC('month', CURRENT_DATE - INTERVAL '12 months'),
+            DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month'),
+            '1 month'::interval
+        ) AS date_series
+),
+monthly_metrics AS (
+    -- Calcular métricas para cada período mensal
+    SELECT 
+        mp.period_start,
+        mp.period_end,
+        -- Assinantes ativos no início do período
+        COUNT(DISTINCT CASE 
+            WHEN s.start_date < mp.period_start
+                AND (s.end_date IS NULL OR s.end_date >= mp.period_start)
+            THEN s.id
+        END) AS active_start,
+        -- Assinantes que cancelaram durante o período
+        COUNT(DISTINCT CASE 
+            WHEN s.cancel_date BETWEEN mp.period_start AND mp.period_end
+                AND ts.status IN ('Cancelada pelo Cliente', 'Cancelada por Inadimplência', 'Cancelada pela Plataforma')
+            THEN s.id
+        END) AS churned_subscribers
+    FROM 
+        monthly_periods mp
+    CROSS JOIN subscriptions s
+    JOIN transaction_statuses ts ON s.status_id = ts.id
+    GROUP BY 
+        mp.period_start, mp.period_end
+)
+SELECT 
+    TO_CHAR(period_start, 'YYYY-MM') AS month,
+    active_start AS subscribers_at_start,
+    churned_subscribers AS subscribers_churned,
+    ROUND((churned_subscribers * 100.0) / NULLIF(active_start, 0), 2) AS monthly_churn_rate_pct,
+    -- Cálculo anualizado (composto mensalmente)
+    ROUND(
+        (1 - POWER(1 - (churned_subscribers::decimal / NULLIF(active_start, 0)), 12)) * 100,
+        2
+    ) AS annualized_churn_rate_pct
+FROM 
+    monthly_metrics
+WHERE 
+    active_start > 0
+ORDER BY 
+    period_start;
+```
+
+
+**Exemplo SQL para churn de receita mensal:**
+
+
+```sql
+-- Cálculo de churn de receita (MRR) por mês
+WITH monthly_periods AS (
+    -- Gerar períodos mensais para análise
+    SELECT 
+        DATE_TRUNC('month', date_series)::date AS period_start,
+        (DATE_TRUNC('month', date_series) + INTERVAL '1 month - 1 day')::date AS period_end
+    FROM 
+        GENERATE_SERIES(
+            DATE_TRUNC('month', CURRENT_DATE - INTERVAL '12 months'),
+            DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month'),
+            '1 month'::interval
+        ) AS date_series
+),
+normalized_mrr AS (
+    -- Normalizar valor recorrente por assinatura
+    SELECT
+        s.id AS subscription_id,
+        s.start_date,
+        s.end_date,
+        s.cancel_date,
+        ts.status,
+        CASE 
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            WHEN p.recurrence_period = 'QUARTER' THEN p.price / 3
+            WHEN p.recurrence_period = 'SEMIANNUAL' THEN p.price / 6
+            WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33
+            ELSE p.price
+        END AS monthly_recurring_revenue
+    FROM 
+        subscriptions s
+    JOIN 
+        plans p ON s.plan_id = p.id
+    JOIN 
+        transaction_statuses ts ON s.status_id = ts.id
+    WHERE
+        p.currency_code = 'BRL'
+),
+monthly_mrr_metrics AS (
+    -- Calcular métricas de MRR para cada período
+    SELECT 
+        mp.period_start,
+        mp.period_end,
+        -- MRR ativo no início do período
+        SUM(CASE 
+            WHEN nm.start_date < mp.period_start
+                AND (nm.end_date IS NULL OR nm.end_date >= mp.period_start)
+            THEN nm.monthly_recurring_revenue
+            ELSE 0
+        END) AS mrr_start,
+        -- MRR cancelado durante o período
+        SUM(CASE 
+            WHEN nm.cancel_date BETWEEN mp.period_start AND mp.period_end
+                AND nm.status IN ('Cancelada pelo Cliente', 'Cancelada por Inadimplência', 'Cancelada pela Plataforma')
+            THEN nm.monthly_recurring_revenue
+            ELSE 0
+        END) AS mrr_churned
+    FROM 
+        monthly_periods mp
+    CROSS JOIN normalized_mrr nm
+    GROUP BY 
+        mp.period_start, mp.period_end
+)
+SELECT 
+    TO_CHAR(period_start, 'YYYY-MM') AS month,
+    ROUND(mrr_start, 2) AS mrr_at_start,
+    ROUND(mrr_churned, 2) AS mrr_churned,
+    ROUND((mrr_churned * 100.0) / NULLIF(mrr_start, 0), 2) AS monthly_mrr_churn_rate_pct,
+    -- Cálculo anualizado (composto mensalmente)
+    ROUND(
+        (1 - POWER(1 - (mrr_churned / NULLIF(mrr_start, 0)), 12)) * 100,
+        2
+    ) AS annualized_mrr_churn_rate_pct
+FROM 
+    monthly_mrr_metrics
+WHERE 
+    mrr_start > 0
+ORDER BY 
+    period_start;
+```
+
+
+**Observações Adicionais:**
+- O churn de receita geralmente é mais preciso para avaliar o impacto financeiro
+- A anualização da taxa mensal usa composição (1 - (1 - taxa_mensal)^12)
+- Existem variações na metodologia, como contabilizar downgrades como churn parcial
+- Para retenção, utilize a fórmula: Retenção = 100% - Churn
+- O "net churn" considera também expansão (negativo quando a expansão supera o churn)
+- Segmentar o churn por plano, duração da assinatura ou canal pode fornecer insights valiosos
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+### Fluxos de Trabalho Comuns
+
+
+#### "Como mapear a jornada completa de um cliente desde a primeira compra até o cancelamento?"
+
+
+**Resposta Canônica:**
+
+
+Mapear a jornada completa de um cliente envolve consultar várias tabelas para reunir informações sobre todas as interações, transações e mudanças de status. O processo completo inclui:
+
+
+1. **Identificação do cliente** (tabela `customers`)
+2. **Todas as transações** (tabela `transactions`)
+3. **Histórico de assinaturas** (tabela `subscriptions`)
+4. **Mudanças de status** (tabelas `transaction_status_history` e `subscription_status_history`)
+5. **Produtos/planos adquiridos** (tabelas `products`, `plans` via `transaction_items`)
+
+
+**Exemplo SQL para mapear a jornada completa de um cliente:**
+
+
+```sql
+-- Parâmetros: identificador do cliente
+-- Substitua pelo email ou ID específico
+WITH client_params AS (
+    SELECT 
+        (SELECT id FROM customers WHERE email = 'cliente@exemplo.com') AS customer_id
+),
+customer_data AS (
+    -- Informações básicas do cliente
+    SELECT 
+        c.id,
+        c.name,
+        c.email,
+        c.created_at AS customer_since,
+        c.phone_local_code || c.phone_number AS phone
+    FROM 
+        customers c, client_params cp
+    WHERE 
+        c.id = cp.customer_id
+),
+purchase_history AS (
+    -- Histórico completo de transações
+    SELECT 
+        t.id,
+        t.transaction_id AS external_id,
+        t.order_date,
+        ts.status AS transaction_status,
+        t.payment_method,
+        t.offer_price,
+        t.is_subscription,
+        t.subscription_id,
+        p.name AS product_name,
+        pl.name AS plan_name,
+        COALESCE(pl.recurrence_period, 'ONE_TIME') AS purchase_type
+    FROM 
+        transactions t
+    JOIN 
+        transaction_statuses ts ON t.status_id = ts.id
+    LEFT JOIN 
+        transaction_items ti ON t.id = ti.transaction_id
+    LEFT JOIN 
+        products p ON ti.product_id = p.id
+    LEFT JOIN 
+        subscriptions s ON t.subscription_id = s.id
+    LEFT JOIN 
+        plans pl ON COALESCE(s.plan_id, ti.plan_id) = pl.id
+    WHERE 
+        t.customer_id = (SELECT customer_id FROM client_params)
+    ORDER BY 
+        t.order_date
+),
+subscription_history AS (
+    -- Histórico de assinaturas e suas mudanças de status
+    SELECT 
+        s.id,
+        s.subscription_id AS external_id,
+        s.start_date,
+        s.end_date,
+        s.cancel_date,
+        pl.name AS plan_name,
+        ts.status AS current_status,
+        ssh.change_date,
+        prev_ts.status AS previous_status,
+        ssh.reason AS change_reason
+    FROM 
+        subscriptions s
+    JOIN 
+        transaction_statuses ts ON s.status_id = ts.id
+    JOIN 
+        plans pl ON s.plan_id = pl.id
+    LEFT JOIN 
+        subscription_status_history ssh ON s.id = ssh.subscription_id
+    LEFT JOIN 
+        transaction_statuses prev_ts ON ssh.status_id = prev_ts.id
+    WHERE 
+        s.customer_id = (SELECT customer_id FROM client_params)
+    ORDER BY 
+        s.start_date, ssh.change_date
+),
+customer_journey AS (
+    -- Consolidar todos os eventos em uma única timeline
+    
+    -- Eventos de transação
+    SELECT 
+        ph.order_date AS event_date,
+        'Transação' AS event_type,
+        ph.transaction_status AS event_status,
+        'Compra: ' || ph.product_name || 
+        CASE WHEN ph.is_subscription THEN ' (Assinatura)' ELSE ' (Única)' END || 
+        ' - ' || ph.payment_method AS event_description,
+        ph.offer_price AS amount,
+        ph.external_id AS reference_id
+    FROM 
+        purchase_history ph
+    
+    UNION ALL
+    
+    -- Eventos de assinatura (início)
+    SELECT 
+        sh.start_date AS event_date,
+        'Assinatura' AS event_type,
+        'Iniciada' AS event_status,
+        'Início da assinatura: ' || sh.plan_name AS event_description,
+        NULL AS amount,
+        sh.external_id AS reference_id
+    FROM 
+        subscription_history sh
+    WHERE 
+        sh.previous_status IS NULL -- Apenas o início inicial
+        
+    UNION ALL
+    
+    -- Eventos de mudança de status de assinatura
+    SELECT 
+        sh.change_date AS event_date,
+        'Assinatura' AS event_type,
+        sh.current_status AS event_status,
+        'Mudança para ' || sh.current_status || 
+        CASE WHEN sh.change_reason IS NOT NULL 
+             THEN ': ' || sh.change_reason
+             ELSE ''
+        END AS event_description,
+        NULL AS amount,
+        sh.external_id AS reference_id
+    FROM 
+        subscription_history sh
+    WHERE 
+        sh.previous_status IS NOT NULL -- Apenas mudanças de status
+)
+-- Resultado final
+SELECT 
+    cd.name AS customer_name,
+    cd.email AS customer_email,
+    cd.phone AS customer_phone,
+    cd.customer_since,
+    cj.event_date,
+    cj.event_type,
+    cj.event_status,
+    cj.event_description,
+    cj.amount,
+    cj.reference_id
+FROM 
+    customer_data cd
+CROSS JOIN 
+    customer_journey cj
+ORDER BY 
+    cj.event_date;
+```
+
+
+**Extensões e Variações:**
+
+
+Para uma análise mais específica, você pode derivar consultas para:
+
+
+1. **Tempo para Primeira Compra:**
+```sql
+SELECT 
+    c.id,
+    c.name,
+    c.email,
+    c.created_at AS registration_date,
+    MIN(t.order_date) AS first_purchase_date,
+    EXTRACT(EPOCH FROM (MIN(t.order_date) - c.created_at)) / 86400 AS days_to_first_purchase
+FROM 
+    customers c
+JOIN 
+    transactions t ON c.id = t.customer_id
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    ts.status = 'Aprovada'
+    AND c.id = [ID_DO_CLIENTE]
+GROUP BY 
+    c.id, c.name, c.email, c.created_at;
+```
+
+
+2. **Sequência de Produtos Adquiridos:**
+```sql
+SELECT 
+    ROW_NUMBER() OVER (ORDER BY t.order_date) AS purchase_number,
+    t.order_date,
+    p.name AS product_name,
+    t.offer_price,
+    CASE WHEN t.is_subscription THEN 'Assinatura' ELSE 'Compra Única' END AS purchase_type
+FROM 
+    transactions t
+JOIN 
+    transaction_items ti ON t.id = ti.transaction_id
+JOIN 
+    products p ON ti.product_id = p.id
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    t.customer_id = [ID_DO_CLIENTE]
+    AND ts.status = 'Aprovada'
+ORDER BY 
+    t.order_date;
+```
+
+
+**Observações Adicionais:**
+- Esta análise de jornada pode ser estendida para incluir outras interações (ex: suporte, login)
+- Para clientes com muitas transações, considere filtrar por período ou limitar resultados
+- O mapeamento pode ser visualizado em ferramentas como Tableau ou Power BI
+- Para análise em escala, considere criar uma view materializada da jornada básica do cliente
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+#### "Como identificar e recuperar clientes com alto risco de churn?"
+
+
+**Resposta Canônica:**
+
+
+Identificar clientes com alto risco de churn (cancelamento) envolve analisar diversos sinais de comportamento. No banco de dados `joaocastanheira_bancodedados`, podemos identificar esses clientes usando diferentes indicadores:
+
+
+1. **Assinantes com falhas recentes de pagamento**
+2. **Assinantes com padrão de uso decrescente** (requer integração com sistema de uso)
+3. **Clientes semelhantes aos que já cancelaram** (análise de cohort)
+4. **Clientes próximos a datas críticas** (aniversário de assinatura, fim de período promocional)
+
+
+**Exemplo SQL para identificar assinantes com falhas de pagamento recentes:**
+
+
+```sql
+-- Assinantes com falhas recentes de pagamento
+SELECT 
+    c.id AS customer_id,
+    c.name AS customer_name,
+    c.email,
+    s.subscription_id AS external_subscription_id,
+    p.name AS plan_name,
+    ts.status AS subscription_status,
+    s.next_billing_date,
+    -- Última tentativa fracassada de cobrança
+    (SELECT MAX(t.order_date)
+     FROM transactions t
+     JOIN transaction_statuses tst ON t.status_id = tst.id
+     WHERE t.subscription_id = s.id
+     AND tst.status IN ('Recusada', 'Pendente')
+     AND t.order_date > CURRENT_DATE - INTERVAL '60 days') AS last_failed_charge_date,
+    -- Número total de falhas recentes
+    (SELECT COUNT(*)
+     FROM transactions t
+     JOIN transaction_statuses tst ON t.status_id = tst.id
+     WHERE t.subscription_id = s.id
+     AND tst.status IN ('Recusada', 'Pendente')
+     AND t.order_date > CURRENT_DATE - INTERVAL '90 days') AS recent_failed_charges,
+    -- Total de transações bem-sucedidas
+    (SELECT COUNT(*)
+     FROM transactions t
+     JOIN transaction_statuses tst ON t.status_id = tst.id
+     WHERE t.subscription_id = s.id
+     AND tst.status = 'Aprovada') AS total_successful_charges,
+    -- Data da última transação aprovada
+    (SELECT MAX(t.order_date)
+     FROM transactions t
+     JOIN transaction_statuses tst ON t.status_id = tst.id
+     WHERE t.subscription_id = s.id
+     AND tst.status = 'Aprovada') AS last_successful_charge_date
+FROM 
+    customers c
+JOIN 
+    subscriptions s ON c.id = s.customer_id
+JOIN 
+    plans p ON s.plan_id = p.id
+JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+WHERE 
+    -- Com status que indica problema de pagamento
+    (ts.status = 'Inadimplente'
+    -- OU teve falha recente mas ainda está ativo
+    OR EXISTS (
+        SELECT 1
+        FROM transactions t
+        JOIN transaction_statuses tst ON t.status_id = tst.id
+        WHERE t.subscription_id = s.id
+        AND tst.status IN ('Recusada', 'Pendente')
+        AND t.order_date > CURRENT_DATE - INTERVAL '30 days'
+    )
+    AND ts.status = 'Ativa')
+    -- Priorizar os casos mais críticos (próximos a cancelamento)
+    AND (s.next_billing_date IS NULL OR s.next_billing_date < CURRENT_DATE + INTERVAL '15 days')
+ORDER BY 
+    -- Ordenar por criticidade (inadimplentes primeiro, depois por data da próxima cobrança)
+    CASE WHEN ts.status = 'Inadimplente' THEN 0 ELSE 1 END,
+    s.next_billing_date;
+```
+
+
+**Exemplo SQL para identificar clientes próximos a datas críticas:**
+
+
+```sql
+-- Assinantes próximos a datas críticas (aniversário, fim de desconto)
+SELECT 
+    c.id AS customer_id,
+    c.name AS customer_name,
+    c.email,
+    s.subscription_id AS external_subscription_id,
+    p.name AS plan_name,
+    s.start_date,
+    -- Aniversário da assinatura
+    (s.start_date + INTERVAL '1 year' * EXTRACT(YEAR FROM AGE(CURRENT_DATE, s.start_date)) + INTERVAL '1 year') AS upcoming_anniversary,
+    EXTRACT(DAY FROM (s.start_date + INTERVAL '1 year' * EXTRACT(YEAR FROM AGE(CURRENT_DATE, s.start_date)) + INTERVAL '1 year') - CURRENT_DATE) AS days_to_anniversary,
+    -- Duração atual da assinatura em dias
+    EXTRACT(DAY FROM AGE(CURRENT_DATE, s.start_date)) AS days_as_subscriber,
+    -- Última transação
+    (SELECT MAX(t.order_date)
+     FROM transactions t
+     JOIN transaction_statuses tst ON t.status_id = tst.id
+     WHERE t.subscription_id = s.id
+     AND tst.status = 'Aprovada') AS last_payment_date,
+    -- Classificação do cliente
+    CASE 
+        -- Prestes a completar primeiro ano (momento crítico de decisão)
+        WHEN EXTRACT(DAY FROM AGE(CURRENT_DATE, s.start_date)) BETWEEN 330 AND 365 THEN 'Próximo ao primeiro aniversário'
+        -- Múltiplos anos, próximo ao aniversário
+        WHEN EXTRACT(DAY FROM (s.start_date + INTERVAL '1 year' * EXTRACT(YEAR FROM AGE(CURRENT_DATE, s.start_date)) + INTERVAL '1 year') - CURRENT_DATE) BETWEEN 0 AND 30 THEN 'Próximo ao aniversário da assinatura'
+        -- Assinantes recentes (primeiros 30 dias também são críticos)
+        WHEN EXTRACT(DAY FROM AGE(CURRENT_DATE, s.start_date)) BETWEEN 0 AND 30 THEN 'Assinante novo (primeiros 30 dias)'
+        -- Assinantes de longo prazo sem compras adicionais
+        WHEN EXTRACT(DAY FROM AGE(CURRENT_DATE, s.start_date)) > 180 
+             AND NOT EXISTS (
+                 SELECT 1 FROM transactions t
+                 JOIN transaction_items ti ON t.id = ti.transaction_id
+                 JOIN transaction_statuses tst ON t.status_id = tst.id
+                 WHERE t.customer_id = c.id
+                 AND t.is_subscription = FALSE
+                 AND tst.status = 'Aprovada'
+             ) THEN 'Assinante de longo prazo sem compras adicionais'
+        ELSE 'Regular'
+    END AS risk_category
+FROM 
+    customers c
+JOIN 
+    subscriptions s ON c.id = s.customer_id
+JOIN 
+    plans p ON s.plan_id = p.id
+JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+WHERE 
+    ts.status = 'Ativa'
+    AND (
+        -- Próximo ao aniversário de um ano (momento crítico de renovação)
+        (EXTRACT(DAY FROM AGE(CURRENT_DATE, s.start_date)) BETWEEN 330 AND 365)
+        -- OU próximo a qualquer aniversário de assinatura
+        OR (EXTRACT(DAY FROM (s.start_date + INTERVAL '1 year' * EXTRACT(YEAR FROM AGE(CURRENT_DATE, s.start_date)) + INTERVAL '1 year') - CURRENT_DATE) BETWEEN 0 AND 30)
+        -- OU assinantes novos (primeiros 30 dias são críticos para estabelecer valor)
+        OR (EXTRACT(DAY FROM AGE(CURRENT_DATE, s.start_date)) BETWEEN 0 AND 30)
+        -- OU assinantes de longo prazo sem engajamento adicional
+        OR (EXTRACT(DAY FROM AGE(CURRENT_DATE, s.start_date)) > 180
+            AND NOT EXISTS (
+                SELECT 1 FROM transactions t
+                JOIN transaction_items ti ON t.id = ti.transaction_id
+                JOIN transaction_statuses tst ON t.status_id = tst.id
+                WHERE t.customer_id = c.id
+                AND t.is_subscription = FALSE
+                AND tst.status = 'Aprovada'
+            ))
+    )
+ORDER BY 
+    CASE 
+        WHEN EXTRACT(DAY FROM AGE(CURRENT_DATE, s.start_date)) BETWEEN 330 AND 365 THEN 1
+        WHEN EXTRACT(DAY FROM (s.start_date + INTERVAL '1 year' * EXTRACT(YEAR FROM AGE(CURRENT_DATE, s.start_date)) + INTERVAL '1 year') - CURRENT_DATE) BETWEEN 0 AND 30 THEN 2
+        WHEN EXTRACT(DAY FROM AGE(CURRENT_DATE, s.start_date)) BETWEEN 0 AND 30 THEN 3
+        ELSE 4
+    END,
+    days_to_anniversary;
+```
+
+
+**Estratégias de Recuperação:**
+
+
+Após identificar os clientes em risco, as estratégias de recuperação comuns incluem:
+
+
+1. **Para problemas de pagamento:**
+   - Comunicação proativa sobre o cartão expirado ou falha de pagamento
+   - Oferecer métodos alternativos de pagamento
+   - Implementar retry automático com intervalo crescente
+
+
+2. **Para aniversários de assinatura:**
+   - Comunicação de reforço de valor (resumo de uso, casos de sucesso)
+   - Oferta de incentivo para renovação (desconto, brinde, funcionalidade adicional)
+   - Feedback survey para identificar pontos de fricção
+
+
+3. **Para baixo engajamento:**
+   - Reativação baseada em casos de uso (tutoriais, webinars)
+   - Programa de onboarding estendido ou refresh
+   - Contato personalizado para entender necessidades
+
+
+**Observações Adicionais:**
+- O ideal é combinar dados transacionais com dados de uso/comportamento
+- Modelos preditivos podem aprimorar a identificação de risco usando machine learning
+- A segmentação por perfil de cliente permite personalizar as estratégias de retenção
+- Métricas de saúde de cliente (Customer Health Score) podem agregar múltiplos indicadores
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+## Anti-Padrões e Misconceptions Comuns
+
+
+### Entendimentos Incorretos sobre o Banco de Dados
+
+
+#### "Toda transação está associada a um único produto"
+
+
+**Misconception:** Uma suposição comum é que cada transação (registro na tabela `transactions`) está associada a exatamente um produto.
+
+
+**Realidade:** Uma transação pode estar associada a múltiplos produtos através da tabela intermediária `transaction_items`. Esta estrutura permite transações do tipo "carrinho" com múltiplos itens ou produtos.
+
+
+**Exemplo Correto:**
+```sql
+-- Listar todos os produtos em uma transação específica
+SELECT 
+    t.transaction_id AS transaction_external_id,
+    t.order_date,
+    p.name AS product_name,
+    ti.quantity,
+    ti.unit_price,
+    (ti.quantity * ti.unit_price) AS item_total
+FROM 
+    transactions t
+JOIN 
+    transaction_items ti ON t.id = ti.transaction_id
+JOIN 
+    products p ON ti.product_id = p.id
+WHERE 
+    t.transaction_id = 'SUA_TRANSACTION_ID_AQUI';
+```
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+#### "O status na tabela transactions/subscriptions é um campo de texto simples"
+
+
+**Misconception:** Muitos usuários tentam filtrar diretamente por strings de status como 'Aprovada', 'Cancelada', etc. na tabela `transactions` ou `subscriptions`.
+
+
+**Realidade:** Os status são normalizados e armazenados como referências (chaves estrangeiras) à tabela `transaction_statuses`. Isso oferece consistência e multicionalidade, mas requer junções para consultas baseadas em status.
+
+
+**Exemplo Incorreto:**
+```sql
+-- Abordagem incorreta
+SELECT * FROM transactions WHERE status = 'Aprovada';
+```
+
+
+**Exemplo Correto:**
+```sql
+-- Abordagem correta
+SELECT 
+    t.*
+FROM 
+    transactions t
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    ts.status = 'Aprovada';
+```
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+#### "Assinaturas sempre começam com uma transação bem-sucedida"
+
+
+**Misconception:** É comum assumir que toda assinatura na tabela `subscriptions` começa com uma transação bem-sucedida na tabela `transactions`.
+
+
+**Realidade:** Assinaturas com período de trial podem ser criadas sem uma transação inicial. A primeira transação só ocorrerá quando o período de trial terminar, se o cliente não cancelar antes.
+
+
+**Exemplo de Verificação:**
+```sql
+-- Verificar assinaturas sem transação inicial
+SELECT 
+    s.id,
+    s.subscription_id AS external_id,
+    c.name AS customer_name,
+    c.email,
+    p.name AS plan_name,
+    p.trial_days,
+    s.start_date,
+    ts.status AS subscription_status
+FROM 
+    subscriptions s
+JOIN 
+    customers c ON s.customer_id = c.id
+JOIN 
+    plans p ON s.plan_id = p.id
+JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+LEFT JOIN 
+    transactions t ON s.id = t.subscription_id AND t.recurrence_number = 1
+WHERE 
+    t.id IS NULL  -- Sem transação inicial
+    AND p.trial_days > 0  -- Com período de trial
+    AND s.start_date >= CURRENT_DATE - INTERVAL '90 days';  -- Recentes
+```
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+### Erros Comuns em Consultas e Análises
+
+
+#### "Calcular o MRR somando todas as transações de assinatura do mês"
+
+
+**Anti-Padrão:** Um erro comum é calcular o MRR (Monthly Recurring Revenue) somando todas as transações de assinatura que ocorreram em um determinado mês.
+
+
+**Problema:** Esta abordagem é incorreta porque:
+1. Inclui tanto primeiras vendas quanto renovações sem distinção
+2. Não normaliza diferentes periodicidades (anual, trimestral, etc.)
+3. Não representa o valor recorrente real no final do mês (snapshot)
+
+
+**Abordagem Correta:**
+```sql
+-- Cálculo correto de MRR (snapshot no último dia do mês)
+WITH month_end_dates AS (
+    SELECT 
+        DATE_TRUNC('month', date_series) + INTERVAL '1 month - 1 day' AS month_end
+    FROM 
+        GENERATE_SERIES(
+            DATE_TRUNC('month', CURRENT_DATE - INTERVAL '12 months'),
+            DATE_TRUNC('month', CURRENT_DATE),
+            '1 month'::interval
+        ) AS date_series
+),
+active_subscriptions AS (
+    SELECT 
+        med.month_end,
+        s.id AS subscription_id,
+        p.price AS original_price,
+        p.recurrence_period,
+        CASE 
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            WHEN p.recurrence_period = 'QUARTER' THEN p.price / 3
+            WHEN p.recurrence_period = 'SEMIANNUAL' THEN p.price / 6
+            WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33
+            ELSE p.price
+        END AS normalized_monthly_revenue
+    FROM 
+        month_end_dates med
+    CROSS JOIN subscriptions s
+    JOIN plans p ON s.plan_id = p.id
+    WHERE 
+        s.start_date <= med.month_end
+        AND (s.end_date IS NULL OR s.end_date > med.month_end)
+        AND p.currency_code = 'BRL'
+)
+SELECT 
+    TO_CHAR(month_end, 'YYYY-MM') AS month,
+    COUNT(DISTINCT subscription_id) AS active_subscriptions,
+    ROUND(SUM(normalized_monthly_revenue), 2) AS mrr
+FROM 
+    active_subscriptions
+GROUP BY 
+    month_end
+ORDER BY 
+    month_end;
+```
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+#### "Ignorar a normalização de moedas em análises globais"
+
+
+**Anti-Padrão:** Em sistemas que processam transações em múltiplas moedas, um erro comum é agregar valores diretamente sem normalização de moeda.
+
+
+**Problema:** Esta abordagem leva a resultados incorretos porque soma valores em moedas diferentes como se fossem equivalentes (ex: 100 BRL + 100 USD ≠ 200 em qualquer moeda).
+
+
+**Exemplo de Abordagem Correta:**
+```sql
+-- Análise com normalização de moeda (conceitual - requer tabela de taxas de câmbio)
+WITH exchange_rates AS (
+    -- Tabela conceitual com taxas de câmbio para cada período
+    -- Na prática, você precisaria de uma fonte real de taxas
+    SELECT 
+        '2023-01-01'::date AS rate_date,
+        'USD' AS from_currency,
+        'BRL' AS to_currency,
+        5.20 AS exchange_rate
+    UNION ALL
+    SELECT '2023-01-01'::date, 'EUR', 'BRL', 6.10
+    -- Adicionar outras taxas e datas
+),
+normalized_transactions AS (
+    SELECT 
+        t.id,
+        t.transaction_id,
+        t.order_date,
+        t.currency_code,
+        t.offer_price AS original_price,
+        -- Normalizar para BRL (moeda base)
+        CASE 
+            WHEN t.currency_code = 'BRL' THEN t.offer_price
+            ELSE t.offer_price * (
+                SELECT er.exchange_rate 
+                FROM exchange_rates er
+                WHERE er.from_currency = t.currency_code
+                AND er.to_currency = 'BRL'
+                AND er.rate_date <= t.order_date
+                ORDER BY er.rate_date DESC
+                LIMIT 1
+            )
+        END AS price_in_brl
+    FROM 
+        transactions t
+    WHERE 
+        t.order_date BETWEEN '2023-01-01' AND '2023-11-30'
+)
+SELECT 
+    DATE_TRUNC('month', order_date) AS month,
+    currency_code,
+    COUNT(*) AS transaction_count,
+    SUM(original_price) AS revenue_original,
+    SUM(price_in_brl) AS revenue_normalized_brl
+FROM 
+    normalized_transactions
+GROUP BY 
+    DATE_TRUNC('month', order_date),
+    currency_code
+ORDER BY 
+    month, currency_code;
+```
+
+
+**Observação:** Na prática, você precisaria de uma fonte de taxas de câmbio histórica para implementar esta normalização com precisão.
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+## Workflows de Integração
+
+
+### Processamento de Webhooks e Eventos
+
+
+#### "Como processar corretamente eventos de pagamento dos gateways?"
+
+
+**Resposta Canônica:**
+
+
+O processamento de eventos de pagamento dos gateways (Hotmart, Kiwify, etc.) segue um padrão consistente utilizando as tabelas do banco de dados `joaocastanheira_bancodedados`. O fluxo correto inclui:
+
+
+1. **Validação do evento** (autenticidade, duplicidade)
+2. **Identificação/criação de registros relacionados** (cliente, produto, etc.)
+3. **Atualização/criação da transação**
+4. **Registro do histórico de status**
+5. **Ações específicas para o tipo de evento** (aprovação, reembolso, etc.)
+
+
+**Pseudocódigo para processamento de evento de pagamento:**
+
+
+```
+FUNÇÃO processar_evento_pagamento(payload):
+    # 1. Validação e Normalização
+    validar_assinatura(payload.signature)
+    evento_id = payload.evento_id
+    
+    # Verificar duplicidade
+    SE existe_evento_processado(evento_id):
+        RETORNAR "Evento já processado"
+    
+    # Normalizar status conforme a plataforma
+    status_normalizado = normalizar_status(payload.status, payload.plataforma)
+    
+    # 2. Identificação/Criação de Registros Base
+    cliente_id = obter_ou_criar_cliente(payload.cliente)
+    produto_id = obter_ou_criar_produto(payload.produto)
+    
+    # 3. Processamento Principal
+    transacao = obter_transacao_por_externo(payload.transacao_id, payload.plataforma)
+    
+    SE transacao NÃO EXISTE:
+        # Nova transação
+        transacao = criar_nova_transacao(
+            cliente_id,
+            produto_id,
+            payload.valor,
+            status_normalizado,
+            payload.metodo_pagamento,
+            payload.plataforma,
+            # outros campos relevantes
+        )
+    SENÃO:
+        # Atualização de transação existente
+        status_anterior = transacao.status
+        
+        SE status_anterior != status_normalizado:
+            atualizar_status_transacao(transacao.id, status_normalizado)
+            
+            # 4. Registro Histórico
+            registrar_historico_status(
+                transacao.id,
+                status_anterior,
+                status_normalizado,
+                payload.data_evento,
+                payload.motivo || "Via webhook " || payload.plataforma
+            )
+            
+            # 5. Ações Específicas por Tipo de Status
+            SE status_normalizado == "Aprovada":
+                processar_aprovacao(transacao, payload)
+                
+            SE status_normalizado == "Reembolsada":
+                processar_reembolso(transacao, payload)
+                
+            SE status_normalizado == "Chargeback Confirmado":
+                processar_chargeback(transacao, payload)
+    
+    # Registrar processamento bem-sucedido
+    registrar_evento_processado(evento_id, payload)
+    RETORNAR "Evento processado com sucesso"
+
+
+FUNÇÃO processar_aprovacao(transacao, payload):
+    # Processar assinatura se aplicável
+    SE payload.is_subscription:
+        assinatura = obter_ou_criar_assinatura(
+            transacao,
+            payload.cliente_id,
+            payload.plano_id,
+            payload.data_inicio,
+            # outros campos relevantes
+        )
+        
+        # Vincular transação à assinatura
+        vincular_transacao_assinatura(transacao.id, assinatura.id)
+    
+    # Processar comissões
+    SE payload.comissoes:
+        PARA CADA comissao EM payload.comissoes:
+            participante_id = obter_ou_criar_participante(comissao.participante)
+            registrar_comissao(
+                transacao.id,
+                participante_id,
+                comissao.valor,
+                comissao.tipo
+            )
+
+
+FUNÇÃO processar_reembolso(transacao, payload):
+    # Estornar comissões
+    comissoes = obter_comissoes(transacao.id)
+    PARA CADA comissao EM comissoes:
+        registrar_estorno_comissao(
+            transacao.id,
+            comissao.participante_id,
+            comissao.valor * -1,
+            "REFUND_" + comissao.tipo
+        )
+    
+    # Atualizar assinatura se existir
+    SE transacao.subscription_id:
+        atualizar_status_assinatura(
+            transacao.subscription_id,
+            "Cancelada por Reembolso",
+            payload.data_evento,
+            "Reembolso solicitado via " + payload.plataforma
+        )
+```
+
+
+**Considerações Importantes:**
+
+
+1. **Idempotência:** O sistema deve garantir que o mesmo evento não seja processado múltiplas vezes
+2. **Atomicidade:** Utilize transações de banco de dados para garantir que todas as operações sejam bem-sucedidas ou nenhuma seja
+3. **Validação:** Verifique a autenticidade do evento (assinatura, origem, etc.)
+4. **Log Detalhado:** Mantenha logs detalhados de todos os eventos recebidos e processados
+5. **Tratamento de Erro:** Implemente retentativas para falhas temporárias e mecanismo de notificação para erros persistentes
+
+
+**Exemplo de Mapeamento de Status (Hotmart e Kiwify):**
+
+
+| Status Original (Hotmart) | Status Original (Kiwify) | Status Normalizado        |
+|---------------------------|--------------------------|----------------------------|
+| `APPROVED`                | `paid`                   | `Aprovada`                 |
+| `DELAYED`                 | `waiting_payment`        | `Pendente`                 |
+| `CANCELED`                | `refused`                | `Recusada`                 |
+| `REFUNDED`                | `refunded`               | `Reembolsada`              |
+| `CHARGEBACK`              | `chargedback`            | `Chargeback Confirmado`    |
+| `COMPLETED`               | `completed`              | `Concluída`                |
+| `APPROVED_RECURRING`      | `paid_renewal`           | `Aprovada`                 |
+| `INACTIVE`                | `inactive`               | `Cancelada pelo Cliente`   |
+| `OVERDUE`                 | `overdue`                | `Inadimplente`             |
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+
+
+## Conclusão e Recursos Adicionais
+
+
+### Quando Usar Custom SQL vs. ORM
+
+
+Uma dúvida frequente é sobre quando utilizar SQL personalizado versus abstrações ORM (Object-Relational Mapping) ao trabalhar com o banco de dados `joaocastanheira_bancodedados`.
+
+
+**Diretrizes:**
+
+
+1. **Use ORM para:**
+   - Operações CRUD básicas em entidades individuais
+   - Consultas simples com poucos relacionamentos
+   - Aplicações com foco em velocidade de desenvolvimento
+   - Manutenção por desenvolvedores com menos experiência em SQL
+
+
+2. **Use SQL personalizado para:**
+   - Consultas analíticas complexas com múltiplas junções
+   - Operações em lote de alto desempenho
+   - Relatórios que exigem funções de janela, CTEs complexas
+   - Situações onde o desempenho é crítico
+   - Operações onde a semântica SQL específica é importante
+
+
+**Exemplo de balanceamento SQL/ORM:**
+
+
+```python
+# Pseudocódigo - Exemplo de abordagem híbrida
+
+
+# Para operações CRUD simples - use ORM
+def criar_novo_cliente(dados_cliente):
+    cliente = Cliente(
+        nome=dados_cliente.nome,
+        email=dados_cliente.email,
+        telefone=dados_cliente.telefone
+    )
+    db.add(cliente)
+    db.commit()
+    return cliente.id
+
+
+# Para análises complexas - use SQL direto
+def calcular_churn_por_produto(data_inicio, data_fim):
+    resultado = db.execute("""
+        WITH churn_data AS (
+            SELECT 
+                p.name AS product_name,
+                COUNT(DISTINCT CASE 
+                    WHEN s.start_date < :data_inicio 
+                        AND (s.end_date IS NULL OR s.end_date >= :data_inicio)
+                    THEN s.id 
+                END) AS active_start,
+                COUNT(DISTINCT CASE 
+                    WHEN s.cancel_date BETWEEN :data_inicio AND :data_fim
+                        AND ts.status IN ('Cancelada pelo Cliente', 'Cancelada por Inadimplência')
+                    THEN s.id 
+                END) AS churned_subscribers
+            FROM 
+                subscriptions s
+            JOIN 
+                plans pl ON s.plan_id = pl.id
+            JOIN 
+                products p ON pl.product_id = p.id
+            JOIN 
+                transaction_statuses ts ON s.status_id = ts.id
+            GROUP BY 
+                p.name
+        )
+        SELECT 
+            product_name,
+            active_start,
+            churned_subscribers,
+            ROUND((churned_subscribers * 100.0) / NULLIF(active_start, 0), 2) AS churn_rate_pct
+        FROM 
+            churn_data
+        WHERE 
+            active_start > 0
+        ORDER BY 
+            churn_rate_pct DESC
+    """, {"data_inicio": data_inicio, "data_fim": data_fim})
+    
+    return resultado.fetchall()
+```
+
+
+Este documento continuará sendo atualizado à medida que novos padrões de uso e perguntas comuns surgirem no uso do sistema RAG para o banco de dados `joaocastanheira_bancodedados`.
+
+
+(Ref: System Known Patterns, ID system_known_patterns_001)
+```

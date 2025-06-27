@@ -8,7 +8,7 @@ import aiohttp
 import json
 
 class MCPClient:
-    def __init__(self, base_url="http://localhost:8000"):
+    def __init__(self, base_url="http://localhost:8001"):
         self.base_url = base_url
     
     async def list_agents(self):

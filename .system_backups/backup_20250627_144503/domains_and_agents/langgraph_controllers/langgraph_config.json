@@ -1,0 +1,17 @@
+{
+  "project": "multi-agent-ai-system",
+  "created_at": "2025-06-27T13:18:28.468086",
+  "domains": [
+    "apis",
+    "knowledge",
+    "copywriters",
+    "analytics"
+  ],
+  "total_agents": 14,
+  "total_sub_agents": 68,
+  "langsmith_config": {
+    "tracing": true,
+    "project": "multi-agent-ai-system",
+    "endpoint": "https://api.smith.langchain.com"
+  }
+}

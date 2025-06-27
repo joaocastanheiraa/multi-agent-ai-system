@@ -1,0 +1,596 @@
+﻿# `Domain_Products_Catalog.md`
+
+
+```markdown
+---
+title: "Domínio de Catálogo de Produtos Unificado"
+id: "domain_products_catalog_001"
+doc_type: "domain_specification"
+doc_version: "1.2"
+date_created: "2025-04-23"
+date_updated: "2025-04-23"
+author: "João Castanheira"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Aprovado"
+environment: "Produção"
+related_docs: [
+  "core_db_arch_001", 
+  "core_db_design_001", 
+  "platform_integration_strategy_001",
+  "ref_db_schema_details_001",
+  "domain_subscription_management_001"
+]
+tables_in_focus: [
+  "products",
+  "plans",
+  "offers",
+  "transaction_items",
+  "platform_sale_offer_history"
+]
+embedding_guide_concepts: [
+  "catálogo de produtos", 
+  "gerenciamento de produtos", 
+  "planos de assinatura", 
+  "ofertas comerciais", 
+  "produtos digitais", 
+  "infoprodutos", 
+  "cursos online", 
+  "catálogo multiplataforma",
+  "unificação de produtos",
+  "mapeamento cross-plataforma",
+  "identificação de produtos",
+  "gestão de ofertas"
+]
+---
+
+
+# Domínio de Catálogo de Produtos Unificado
+
+
+## Visão Geral
+
+
+O Domínio de Catálogo de Produtos é responsável por armazenar e gerenciar informações sobre todos os produtos, planos de assinatura e ofertas comerciais disponíveis para venda, independentemente da plataforma de origem. Este domínio fornece uma visão unificada do catálogo, permitindo que produtos provenientes de múltiplas plataformas (como Hotmart, Kiwify e outras) sejam gerenciados de forma consistente.
+
+
+O catálogo unifica produtos, planos e ofertas de múltiplas plataformas usando a combinação de identificadores originais das plataformas (como `product_id`, `plan_id` ou `offer_id`) com o campo `platform_origin`. Esta estratégia de identificação composta permite manter a rastreabilidade até a fonte original enquanto proporciona uma visão consolidada. Para detalhes sobre como os dados são importados e normalizados das diversas plataformas, consulte a **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md)**.
+
+
+Este domínio serve como base para outros domínios, particularmente o de Transações e Assinaturas, que dependem destas entidades para registrar o que foi vendido ou assinado.
+
+
+(Ref: Catálogo de Produtos, ID domain_products_catalog_001)
+
+
+## Entidades Principais
+
+
+### Produtos (`products`)
+
+
+A tabela `products` é o repositório central de todos os produtos disponíveis para venda, independentemente de como são comercializados (venda direta ou assinatura). Ela armazena informações básicas como nome e descrição.
+
+
+#### Estrutura de Dados
+
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | SERIAL | Identificador único interno (PK) |
+| `product_id` | VARCHAR(100) | Identificador original do produto na plataforma de origem |
+| `platform_origin` | VARCHAR(100) | Nome da plataforma de onde o produto foi originado (ex: "Hotmart", "Kiwify") |
+| `name` | VARCHAR(255) | Nome do produto |
+| `description` | TEXT | Descrição detalhada do produto |
+| `created_at` | TIMESTAMP WITH TIME ZONE | Data de criação do registro |
+| `updated_at` | TIMESTAMP WITH TIME ZONE | Data da última atualização do registro |
+
+
+**Nota importante**: A combinação `(product_id, platform_origin)` forma uma chave única composta, garantindo que cada produto de cada plataforma seja representado apenas uma vez no catálogo unificado. Esta abordagem é fundamental para a arquitetura multiplataforma, permitindo a identificação precisa de produtos independentemente de sua origem.
+
+
+#### Exemplo de Consulta
+
+
+Para recuperar todos os produtos de uma plataforma específica:
+
+
+```sql
+SELECT id, product_id, name, description
+FROM products
+WHERE platform_origin = 'Hotmart'
+ORDER BY name;
+```
+
+
+Para encontrar um produto específico usando sua identificação na plataforma de origem:
+
+
+```sql
+SELECT id, product_id, name, description
+FROM products
+WHERE product_id = 'PROD123' AND platform_origin = 'Kiwify';
+```
+
+
+### Planos (`plans`)
+
+
+A tabela `plans` armazena configurações para assinaturas recorrentes. Cada plano está associado a um produto específico e define condições como preço, intervalo de cobrança e período de trial.
+
+
+#### Estrutura de Dados
+
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | SERIAL | Identificador único interno (PK) |
+| `plan_id` | VARCHAR(100) | Identificador original do plano na plataforma de origem |
+| `platform_origin` | VARCHAR(100) | Nome da plataforma de onde o plano foi originado |
+| `name` | VARCHAR(255) | Nome do plano |
+| `description` | TEXT | Descrição detalhada do plano |
+| `product_id` | INTEGER | Referência ao produto associado (FK para `products.id`) |
+| `price` | NUMERIC(15, 4) | Preço base do plano por ciclo de cobrança |
+| `currency_code` | VARCHAR(3) | Código da moeda (ex: "BRL", "USD") |
+| `recurrence_period` | VARCHAR(20) | Unidade de tempo da recorrência (ex: "MONTH", "YEAR") |
+| `recurrence_interval` | INTEGER | Intervalo entre recorrências |
+| `trial_days` | INTEGER | Número de dias do período de trial gratuito |
+| `max_cycles` | INTEGER | Número máximo de ciclos (0 ou NULL para infinito) |
+| `created_at` | TIMESTAMP WITH TIME ZONE | Data de criação do registro |
+| `updated_at` | TIMESTAMP WITH TIME ZONE | Data da última atualização do registro |
+
+
+**Nota importante**: Similar aos produtos, a combinação `(plan_id, platform_origin)` forma uma chave única composta, permitindo que planos de diferentes plataformas sejam unificados no mesmo catálogo. Esta abordagem de identificação é consistente com a **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md#identificação-e-reconciliação-de-entidades)**.
+
+
+#### Exemplo de Consulta
+
+
+Para recuperar todos os planos associados a um produto específico:
+
+
+```sql
+SELECT p.name AS plan_name, p.price, p.currency_code, 
+       p.recurrence_period, p.recurrence_interval, p.trial_days
+FROM plans p
+JOIN products pr ON p.product_id = pr.id
+WHERE pr.product_id = 'PROD123' AND pr.platform_origin = 'Hotmart'
+ORDER BY p.price;
+```
+
+
+### Ofertas (`offers`)
+
+
+A tabela `offers` representa variações comerciais específicas de produtos ou planos. Uma oferta pode ser um link de checkout específico, uma promoção temporária, ou condições comerciais particulares para um produto ou plano.
+
+
+#### Estrutura de Dados
+
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | SERIAL | Identificador único interno (PK) |
+| `offer_id` | VARCHAR(100) | Identificador original da oferta na plataforma de origem |
+| `platform_origin` | VARCHAR(100) | Nome da plataforma de onde a oferta foi originada |
+| `name` | VARCHAR(255) | Nome descritivo da oferta |
+| `description` | TEXT | Descrição detalhada das condições da oferta |
+| `plan_id` | INTEGER | Referência ao plano associado, se aplicável (FK para `plans.id`) |
+| `product_id` | INTEGER | Referência ao produto associado (FK para `products.id`) |
+| `payment_mode` | VARCHAR(50) | Modo de pagamento (ex: "subscription", "one_time") |
+| `price` | NUMERIC(15, 4) | Preço específico desta oferta |
+| `currency_code` | VARCHAR(3) | Código da moeda (ex: "BRL", "USD") |
+| `created_at` | TIMESTAMP WITH TIME ZONE | Data de criação do registro |
+| `updated_at` | TIMESTAMP WITH TIME ZONE | Data da última atualização do registro |
+
+
+**Nota importante**: Assim como as outras entidades, a combinação `(offer_id, platform_origin)` forma uma chave única composta, mantendo a consistência da arquitetura de identificação multiplataforma.
+
+
+#### Exemplo de Consulta
+
+
+Para recuperar todas as ofertas ativas para um produto específico:
+
+
+```sql
+SELECT o.name AS offer_name, o.price, o.currency_code, o.payment_mode
+FROM offers o
+JOIN products p ON o.product_id = p.id
+WHERE p.product_id = 'PROD123' AND p.platform_origin = 'Kiwify'
+ORDER BY o.price;
+```
+
+
+### Histórico de Ofertas de Venda (`platform_sale_offer_history`)
+
+
+A tabela `platform_sale_offer_history` armazena um snapshot das condições da oferta no momento de uma venda, garantindo que informações históricas sejam preservadas mesmo que a oferta seja modificada posteriormente.
+
+
+#### Estrutura de Dados
+
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | SERIAL | Identificador único interno (PK) |
+| `transaction_id` | INTEGER | Referência à transação associada (FK para `transactions.id`) |
+| `code` | VARCHAR(100) | Código interno ou SKU da oferta/plano no momento da venda |
+| `offer_id` | VARCHAR(100) | ID da oferta na plataforma de origem no momento da venda |
+| `offer_name` | VARCHAR(255) | Nome da oferta como exibido ao cliente no momento da venda |
+| `description` | VARCHAR(500) | Descrição da oferta válida no momento da venda |
+| `created_at` | TIMESTAMP WITH TIME ZONE | Data de criação do registro |
+| `updated_at` | TIMESTAMP WITH TIME ZONE | Data da última atualização do registro |
+
+
+Esta tabela é especialmente importante para manter a integridade histórica dos termos de venda, independentemente das alterações futuras no catálogo de ofertas.
+
+
+(Ref: Catálogo de Produtos, ID domain_products_catalog_001)
+
+
+## Relacionamentos com Outros Domínios
+
+
+O Domínio de Catálogo de Produtos se relaciona com outros domínios do seguinte modo:
+
+
+### Relacionamento com Domínio de Transações
+
+
+- A tabela `transaction_items` vincula transações a produtos, planos ou ofertas específicos
+- Cada `transaction_item` pode referenciar um produto, um plano, uma oferta, ou uma combinação destes
+
+
+### Relacionamento com Domínio de Assinaturas
+
+
+- Cada assinatura (`subscriptions`) está associada a um plano (`plans`)
+- O plano define as condições de cobrança e renovação da assinatura
+
+
+### Relacionamento com Domínio de Comissões
+
+
+- As comissões são calculadas com base no produto ou plano vendido
+- Diferentes produtos ou planos podem ter estruturas de comissionamento distintas
+
+
+### Diagrama de Relacionamentos
+
+
+```mermaid
+graph TD
+    A[products] -->|referenciado por| B[plans]
+    A -->|referenciado por| C[offers]
+    B -->|referenciado por| C
+    A -->|vendido como| D[transaction_items]
+    B -->|vendido como| D
+    C -->|vendido como| D
+    C -->|snapshot histórico| E[platform_sale_offer_history]
+    B -->|define condições para| F[subscriptions]
+```
+
+
+Este diagrama ilustra como as entidades do catálogo de produtos estão interconectadas e como elas se relacionam com outros domínios como transações e assinaturas.
+
+
+(Ref: Catálogo de Produtos, ID domain_products_catalog_001)
+
+
+## Casos de Uso Comuns
+
+
+### 1. Registro de Novo Produto de Plataforma Externa
+
+
+Quando um novo produto é criado em uma plataforma externa (como Hotmart ou Kiwify), ele é automaticamente sincronizado com o catálogo unificado através do processo de integração. Este processo envolve a extração das informações do produto da API da plataforma, sua normalização conforme o modelo de dados unificado, e inserção no banco de dados com a devida identificação de origem.
+
+
+```sql
+-- Exemplo de inserção de um novo produto da Hotmart
+INSERT INTO products (product_id, platform_origin, name, description)
+VALUES ('123456', 'Hotmart', 'Curso de Marketing Digital', 'Aprenda estratégias avançadas de marketing digital.')
+ON CONFLICT (product_id, platform_origin)
+DO UPDATE SET
+    name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    updated_at = CURRENT_TIMESTAMP;
+```
+
+
+Para detalhes sobre como os dados dos produtos são extraídos, transformados e carregados a partir de diferentes plataformas, consulte **[Estratégia de Integração Multiplataforma - Implementação por Plataforma](platform_integration_strategy_001.md#implementação-por-plataforma)**.
+
+
+### 2. Criação de Plano de Assinatura
+
+
+Um plano de assinatura é registrado quando é criado em uma plataforma de origem, vinculado a um produto existente:
+
+
+```sql
+-- Exemplo de inserção de um novo plano de assinatura
+INSERT INTO plans (
+    plan_id, platform_origin, name, product_id, price, currency_code,
+    recurrence_period, recurrence_interval, trial_days
+)
+VALUES (
+    'PLAN789', 'Kiwify', 'Plano Mensal Premium',
+    (SELECT id FROM products WHERE product_id = 'PROD123' AND platform_origin = 'Kiwify'),
+    97.00, 'BRL', 'MONTH', 1, 7
+);
+```
+
+
+### 3. Análise de Vendas por Produto
+
+
+O catálogo unificado permite analisar vendas de produtos independentemente da plataforma de origem:
+
+
+```sql
+-- Exemplo de consulta para análise de vendas por produto
+SELECT 
+    p.name AS product_name,
+    p.platform_origin,
+    COUNT(ti.id) AS total_sales,
+    SUM(t.offer_price) AS total_revenue
+FROM products p
+JOIN transaction_items ti ON p.id = ti.product_id
+JOIN transactions t ON ti.transaction_id = t.id
+WHERE t.status_id = (SELECT id FROM transaction_statuses WHERE status = 'Aprovada')
+GROUP BY p.id, p.name, p.platform_origin
+ORDER BY total_revenue DESC;
+```
+
+
+### 4. Comparação de Desempenho de Ofertas
+
+
+A estrutura permite comparar diferentes ofertas do mesmo produto:
+
+
+```sql
+-- Exemplo de consulta comparativa de ofertas
+SELECT 
+    o.name AS offer_name,
+    o.price,
+    COUNT(ti.id) AS total_sales,
+    SUM(t.offer_price) AS total_revenue,
+    AVG(t.offer_price) AS avg_revenue_per_sale
+FROM offers o
+JOIN transaction_items ti ON o.id = ti.offer_id
+JOIN transactions t ON ti.transaction_id = t.id
+WHERE t.status_id = (SELECT id FROM transaction_statuses WHERE status = 'Aprovada')
+AND o.product_id = (SELECT id FROM products WHERE product_id = 'PROD123' AND platform_origin = 'Hotmart')
+GROUP BY o.id, o.name, o.price
+ORDER BY total_revenue DESC;
+```
+
+
+(Ref: Catálogo de Produtos, ID domain_products_catalog_001)
+
+
+## Manutenção do Catálogo Multiplataforma
+
+
+### Sincronização Automática
+
+
+O catálogo é mantido atualizado através de processos automatizados de sincronização com as APIs das plataformas de origem:
+
+
+1. **Webhooks e Eventos**: Recebimento de notificações em tempo real sobre alterações em produtos, planos ou ofertas
+2. **Sincronização Periódica**: Jobs agendados que verificam alterações em intervalos regulares
+3. **Reconciliação Manual**: Interface para forçar sincronização manual quando necessário
+
+
+Os adaptadores específicos para cada plataforma, implementados conforme a **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md#adaptadores-específicos-por-plataforma)**, garantem que os dados sejam corretamente normalizados antes de serem inseridos no catálogo unificado.
+
+
+### Resolução de Conflitos
+
+
+Quando produtos ou planos com o mesmo identificador são recebidos de diferentes plataformas, ou quando há divergências nos dados, as seguintes regras são aplicadas:
+
+
+1. **Identificação Única**: A combinação `(id_na_plataforma, platform_origin)` garante que não haja colisão entre produtos de plataformas diferentes
+2. **Atualização Seletiva**: Em atualizações, apenas campos não-nulos são atualizados, preservando dados existentes quando apropriado
+3. **Logs de Alteração**: Mudanças significativas são registradas para auditoria
+
+
+### Tratamento de Exclusões
+
+
+Quando produtos, planos ou ofertas são descontinuados nas plataformas de origem, eles não são removidos do catálogo unificado, mas marcados como inativos através de flags ou status específicos. Isso preserva o histórico de vendas e assinaturas passadas.
+
+
+(Ref: Catálogo de Produtos, ID domain_products_catalog_001)
+
+
+## Consultas Unificadas e Cross-Platform
+
+
+Uma das principais vantagens do catálogo unificado é a capacidade de realizar consultas que abrangem produtos de múltiplas plataformas:
+
+
+### Comparação de Produtos Entre Plataformas
+
+
+```sql
+-- Consulta para comparar produtos similares entre plataformas
+SELECT 
+    platform_origin AS platform,
+    COUNT(id) AS product_count,
+    AVG(
+        (SELECT AVG(price) FROM offers WHERE offers.product_id = products.id)
+    ) AS avg_offer_price
+FROM products
+WHERE name LIKE '%Curso de Marketing%'
+GROUP BY platform_origin;
+```
+
+
+### Análise Consolidada de Vendas
+
+
+```sql
+-- Análise consolidada de vendas por plataforma
+SELECT 
+    p.platform_origin,
+    COUNT(t.id) AS total_transactions,
+    SUM(t.offer_price) AS total_revenue,
+    COUNT(DISTINCT t.customer_id) AS unique_customers
+FROM transactions t
+JOIN transaction_items ti ON t.id = ti.transaction_id
+JOIN products p ON ti.product_id = p.id
+WHERE t.status_id = (SELECT id FROM transaction_statuses WHERE status = 'Aprovada')
+AND t.order_date BETWEEN '2023-01-01' AND '2023-12-31'
+GROUP BY p.platform_origin;
+```
+
+
+### Produtos com Presença em Múltiplas Plataformas
+
+
+Em alguns casos, o mesmo produto (ou versões muito similares) pode estar presente em múltiplas plataformas. O catálogo unificado permite identificar esses casos:
+
+
+```sql
+-- Identificação de possíveis produtos duplicados entre plataformas
+SELECT 
+    p1.name, 
+    p1.platform_origin AS platform1, 
+    p2.platform_origin AS platform2
+FROM products p1
+JOIN products p2 ON 
+    p1.name = p2.name AND 
+    p1.platform_origin < p2.platform_origin
+ORDER BY p1.name;
+```
+
+
+Esta capacidade de consulta unificada é um benefício direto da abordagem agnóstica de plataforma implementada pelo modelo de dados.
+
+
+(Ref: Catálogo de Produtos, ID domain_products_catalog_001)
+
+
+## Considerações Técnicas
+
+
+### Indexação Otimizada
+
+
+A estrutura de índices é otimizada para suportar consultas comuns no catálogo:
+
+
+```sql
+-- Índices para tabela products
+CREATE INDEX IF NOT EXISTS idx_products_name ON products (name);
+CREATE INDEX IF NOT EXISTS idx_products_platform_origin ON products (platform_origin);
+
+
+-- Índices para tabela plans
+CREATE INDEX IF NOT EXISTS idx_plans_product_id ON plans (product_id);
+CREATE INDEX IF NOT EXISTS idx_plans_platform_origin ON plans (platform_origin);
+
+
+-- Índices para tabela offers
+CREATE INDEX IF NOT EXISTS idx_offers_plan_id ON offers (plan_id);
+CREATE INDEX IF NOT EXISTS idx_offers_product_id ON offers (product_id);
+CREATE INDEX IF NOT EXISTS idx_offers_platform_origin ON offers (platform_origin);
+```
+
+
+### Estratégia de Particionamento
+
+
+Para catálogos muito grandes, pode-se considerar o particionamento das tabelas principais:
+
+
+1. **Particionamento por Plataforma**: Dividir tabelas por `platform_origin`
+2. **Particionamento por Data**: Dividir histórico de vendas por períodos
+
+
+### Cache de Catálogo
+
+
+Implementação de cache para consultas frequentes ao catálogo:
+
+
+1. **Cache de Produtos Populares**: Armazenar em cache produtos mais vendidos
+2. **Cache de Preços**: Manter informações de preço atualizadas para consulta rápida
+3. **Invalidação Seletiva**: Atualizar cache apenas quando dados relevantes mudam
+
+
+(Ref: Catálogo de Produtos, ID domain_products_catalog_001)
+
+
+## Evolução do Catálogo
+
+
+### Extensibilidade para Novas Plataformas
+
+
+O design do catálogo foi pensado para facilitar a adição de novas plataformas:
+
+
+1. **Chaves Compostas**: A utilização de `(id_na_plataforma, platform_origin)` como identificador único permite adicionar novas plataformas sem conflito
+2. **Adaptadores Plugáveis**: A arquitetura de integração permite adicionar novos adaptadores para plataformas futuras
+3. **Campos Genéricos**: A estrutura de dados comporta a diversidade de informações entre plataformas
+
+
+Para implementar uma nova plataforma, é necessário:
+
+
+1. Criar um novo adaptador específico para a plataforma seguindo o padrão da **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md#extensão-para-novas-plataformas)**
+2. Definir o mapeamento entre os campos da nova plataforma e o modelo unificado
+3. Implementar a lógica de extração e transformação dos dados
+
+
+### Enriquecimento de Dados
+
+
+O catálogo pode ser enriquecido com informações adicionais:
+
+
+1. **Metadados de Produto**: Categorias, tags, público-alvo
+2. **Métricas de Desempenho**: Conversão, satisfação, retenção
+3. **Recursos Associados**: Materiais, downloads, bônus
+
+
+### Versionamento de Produtos
+
+
+Para produtos que passam por atualizações significativas, um sistema de versionamento pode ser implementado:
+
+
+1. **Histórico de Versões**: Registro de mudanças importantes em produtos
+2. **Acesso por Versão**: Controle de qual versão cada cliente tem acesso
+3. **Upgrades e Migrações**: Gestão de atualizações de clientes entre versões
+
+
+(Ref: Catálogo de Produtos, ID domain_products_catalog_001)
+
+
+## Conclusão
+
+
+O Domínio de Catálogo de Produtos Unificado é uma peça fundamental da arquitetura do banco de dados `joaocastanheira_bancodedados`. Ele proporciona uma visão consolidada de produtos, planos e ofertas provenientes de múltiplas plataformas, permitindo operações e análises consistentes independentemente da origem dos dados.
+
+
+A implementação do catálogo seguindo a **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md)** garante que:
+
+
+1. **Cada produto é identificado unicamente**, independentemente da plataforma de origem
+2. **Terminologias diferentes são normalizadas** para um vocabulário comum
+3. **Histórico de ofertas é preservado**, mesmo quando as condições mudam
+4. **Análises cross-platform são possíveis**, permitindo comparações entre diferentes plataformas
+
+
+Esta abordagem agnóstica de plataforma proporciona flexibilidade para expansão futura e resiliência a mudanças nas plataformas externas, ao mesmo tempo em que mantém a integridade e consistência dos dados.
+
+
+(Ref: Catálogo de Produtos, ID domain_products_catalog_001)
+```

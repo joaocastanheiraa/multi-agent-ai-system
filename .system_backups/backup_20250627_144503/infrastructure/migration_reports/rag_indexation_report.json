@@ -1,0 +1,13 @@
+{
+  "indexation_completed": "2025-06-25T10:28:53.304990",
+  "stats": {
+    "processed_kbs": 6,
+    "total_files": 39,
+    "total_chunks": 195,
+    "total_embeddings": 195,
+    "errors": 0
+  },
+  "success_rate": 1.0,
+  "setup_type": "mock_demonstration",
+  "note": "This is a mock setup for demonstration. In production, configure OpenAI API and Supabase."
+}

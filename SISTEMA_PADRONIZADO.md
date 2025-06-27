@@ -24,7 +24,7 @@ Este sistema foi padronizado para funcionar perfeitamente sempre. Siga os passos
 ```
 🎨 AutoGen Studio:    http://localhost:8081
 🔧 LangGraph Studio:  https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:8082
-📡 MCP Server API:    http://localhost:8000
+📡 MCP Server API:    http://localhost:8001
 📚 API Docs:          http://127.0.0.1:8082/docs
 ```
 

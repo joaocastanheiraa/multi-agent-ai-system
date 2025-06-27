@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt || echo "Main requirements op
 COPY . .
 
 # Expor porta
-EXPOSE 8000
+EXPOSE 8001
 
 # Comando padrão
 CMD ["python", "mcp_integration/mcp_server.py"]

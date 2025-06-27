@@ -1,0 +1,51 @@
+{
+  "knowledge_bases_index": {
+    "total_knowledge_bases": 6,
+    "knowledge_bases": [
+      {
+        "name": "conversion_catalyst_knowledge",
+        "path": "knowledge_bases/conversion_catalyst_knowledge",
+        "total_files": 10,
+        "specialization": "Neurociência da decisão e psicologia comportamental",
+        "status": "ready_for_rag"
+      },
+      {
+        "name": "metaphor_architect_knowledge",
+        "path": "knowledge_bases/metaphor_architect_knowledge",
+        "total_files": 5,
+        "specialization": "Princípios de mapeamento isomórfico e psicologia da compreensão analógica",
+        "status": "ready_for_rag"
+      },
+      {
+        "name": "neurohook_knowledge",
+        "path": "knowledge_bases/neurohook_knowledge",
+        "total_files": 5,
+        "specialization": "Audience psychology, hook techniques, linguistic engineering",
+        "status": "ready_for_rag"
+      },
+      {
+        "name": "pain_detector_knowledge",
+        "path": "knowledge_bases/pain_detector_knowledge",
+        "total_files": 9,
+        "specialization": "Agent architecture, foundational psychology, pain taxonomy",
+        "status": "ready_for_rag"
+      },
+      {
+        "name": "paradigm_architect_knowledge",
+        "path": "knowledge_bases/paradigm_architect_knowledge",
+        "total_files": 7,
+        "specialization": "Frameworks de transformação, metodologias de legitimação, técnicas de engenharia",
+        "status": "ready_for_rag"
+      },
+      {
+        "name": "retention_architect_knowledge",
+        "path": "knowledge_bases/retention_architect_knowledge",
+        "total_files": 6,
+        "specialization": "Cognitive foundations, master examples, retention techniques",
+        "status": "ready_for_rag"
+      }
+    ],
+    "migration_date": "2025-06-25T08:35:18.587203",
+    "next_phase": "rag_optimization_phase_d"
+  }
+}

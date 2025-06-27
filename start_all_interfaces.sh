@@ -53,14 +53,14 @@ echo "============================================"
 
 # Verificar portas
 PORTS_OK=true
-if ! check_port 8000; then PORTS_OK=false; fi
+if ! check_port 8001; then PORTS_OK=false; fi
 if ! check_port 8081; then PORTS_OK=false; fi  
 if ! check_port 8082; then PORTS_OK=false; fi
 
 if [ "$PORTS_OK" = false ]; then
     echo ""
     echo "❌ Algumas portas já estão em uso. Verificar processos:"
-    echo "   lsof -i :8000 :8001 :8082"
+    echo "   lsof -i :8001 :8081 :8082"
     echo "   Para parar: pkill -f \"uvicorn\" && pkill -f \"autogenstudio\" && pkill -f \"langgraph\""
     echo ""
     read -p "Continuar mesmo assim? [y/N]: " -n 1 -r
@@ -71,7 +71,7 @@ if [ "$PORTS_OK" = false ]; then
 fi
 
 echo ""
-echo "📡 Iniciando MCP Server (porta 8000)..."
+echo "📡 Iniciando MCP Server (porta 8001)..."
 echo "======================================="
 cd mcp_integration
 if [ ! -f "mcp_server.py" ]; then
@@ -132,9 +132,9 @@ echo "🔍 Verificando status dos serviços..."
 echo "====================================="
 
 # Verificar MCP Server
-if wait_for_port 8000; then
-    if curl -s http://localhost:8000/health > /dev/null; then
-        agents_info=$(curl -s http://localhost:8000/ | jq -r '. | "Agentes: \(.agents.langgraph + .agents.autogen) (\(.agents.langgraph) LangGraph + \(.agents.autogen) AutoGen)"' 2>/dev/null || echo "82 agentes")
+if wait_for_port 8001; then
+    if curl -s http://localhost:8001/health > /dev/null; then
+        agents_info=$(curl -s http://localhost:8001/ | jq -r '. | "Agentes: \(.agents.langgraph + .agents.autogen) (\(.agents.langgraph) LangGraph + \(.agents.autogen) AutoGen)"' 2>/dev/null || echo "82 agentes")
         echo "✅ MCP Server: ATIVO - $agents_info"
     else
         echo "❌ MCP Server: ERRO - Não está respondendo corretamente"
@@ -165,9 +165,9 @@ echo "🌐 INTERFACES DISPONÍVEIS:"
 echo "=========================="
 echo "🎨 AutoGen Studio:     http://localhost:8081  (Interface Visual Microsoft)"
 echo "🔧 LangGraph Studio:   https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:8082  (Editor Visual de Workflows)"  
-echo "📡 MCP Server API:     http://localhost:8000  (API REST Principal)"
-echo "📖 Swagger UI:         http://localhost:8000/docs  (Documentação Interativa)"
-echo "📚 ReDoc:              http://localhost:8000/redoc  (Documentação Alternativa)"
+echo "📡 MCP Server API:     http://localhost:8001  (API REST Principal)"
+echo "📖 Swagger UI:         http://localhost:8001/docs  (Documentação Interativa)"
+echo "📚 ReDoc:              http://localhost:8001/redoc  (Documentação Alternativa)"
 echo ""
 echo "🔧 LANGGRAPH STUDIO URLs:"
 echo "========================="
@@ -177,10 +177,10 @@ echo "📚 API Docs:           http://127.0.0.1:8082/docs"
 echo ""
 echo "📋 COMANDOS ÚTEIS:"
 echo "=================="
-echo "🔍 Status:             curl http://localhost:8000/health"
-echo "🤖 Lista Agentes:      curl http://localhost:8000/agents"
-echo "📊 Métricas:           curl http://localhost:8000/metrics"
-echo "📱 Teste API:          curl -X POST http://localhost:8000/agent/process"
+echo "🔍 Status:             curl http://localhost:8001/health"
+echo "🤖 Lista Agentes:      curl http://localhost:8001/agents"
+echo "📊 Métricas:           curl http://localhost:8001/metrics"
+echo "📱 Teste API:          curl -X POST http://localhost:8001/agent/process"
 echo ""
 echo "🛑 PARA PARAR TODOS OS SERVIÇOS:"
 echo "================================"
@@ -213,7 +213,7 @@ echo "🎯 ACESSO RÁPIDO - COPIE E COLE NO NAVEGADOR:"
 echo "============================================="
 echo "AutoGen Studio:    http://localhost:8081"
 echo "LangGraph Studio:  https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:8082"
-echo "MCP Server API:    http://localhost:8000"
+echo "MCP Server API:    http://localhost:8001"
 
 # Manter rodando até Ctrl+C
 wait 

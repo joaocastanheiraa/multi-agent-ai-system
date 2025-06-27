@@ -1,0 +1,20 @@
+{
+  "knowledge_base_name": "pain_detector_knowledge",
+  "type": "domain_knowledge_base",
+  "migration_status": "migrated",
+  "migration_date": "2025-06-25T08:35:18.577292",
+  "total_files": 9,
+  "subdirectories": [
+    "foundational_psychology",
+    "pain_taxonomy",
+    "agent_architecture"
+  ],
+  "root_files": [
+    "summary"
+  ],
+  "specialization": "Agent architecture, foundational psychology, pain taxonomy",
+  "next_phase": "rag_optimization",
+  "target_vector_db": "supabase",
+  "chunking_strategy": "semantic",
+  "embedding_model": "text-embedding-3-large"
+}

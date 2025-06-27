@@ -33,7 +33,7 @@ class AgentTestingDashboard:
         self.results_path.mkdir(exist_ok=True)
         
         # URLs dos serviços
-        self.mcp_server_url = "http://localhost:8000"
+        self.mcp_server_url = "http://localhost:8001"
         self.langgraph_url = "http://localhost:8082"
         
     def load_available_agents(self) -> Dict[str, List[str]]:

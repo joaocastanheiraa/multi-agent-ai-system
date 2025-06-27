@@ -25,9 +25,9 @@ python mcp_server.py &
 MCP_PID=$!
 
 echo "✅ Servidor MCP iniciado (PID: $MCP_PID)"
-echo "🌐 Acesse: http://localhost:8000"
-echo "📊 Agents: http://localhost:8000/agents"
-echo "🔧 Tools: http://localhost:8000/tools"
+echo "🌐 Acesse: http://localhost:8001"
+echo "📊 Agents: http://localhost:8001/agents"
+echo "🔧 Tools: http://localhost:8001/tools"
 
 # Salvar PID
 echo $MCP_PID > mcp_server.pid

@@ -1,0 +1,1258 @@
+﻿# `Ref_DB_Schema_Details.md` 
+
+
+
+
+```markdown
+---
+title: "Referência Técnica: Detalhes do Schema do Banco de Dados"
+id: "ref_db_schema_details_001"
+doc_type: "technical_reference"
+doc_version: "1.0"
+date_created: "2025-04-23" 
+date_updated: "2025-04-23" 
+author: "João Castanheira (Schema Extraído)"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Gerado"
+environment: "Produção"
+related_docs: ["core_db_arch_001", "core_db_design_001", "core_db_glossary_001"] # Mantendo IDs originais
+db_engine: "PostgreSQL 13+"
+tables_in_scope: ["addresses", "commission_participants", "customer_logs", "customers", "offers", "participant_addresses", "plans", "platform_commission", "platform_sale_offer_history", "platform_software_invoice_history", "platform_transaction_payment_history", "platform_utm_history", "products", "subscriptions", "subscription_status_history", "transaction_fees", "transaction_items", "transaction_statuses", "transaction_status_history", "transactions"]
+embedding_guide_concepts: ["schema de banco de dados", "definição de tabela", "definição de coluna", "tipos de dados", "constraints", "chaves primárias", "chaves estrangeiras", "índices", "triggers", "funções de banco de dados", "comentários de schema", "referência técnica SQL", "estrutura de dados", "modelo de dados físico"]
+---
+
+
+# Referência Técnica: Detalhes do Schema do Banco de Dados
+
+
+Este documento fornece uma referência técnica completa e detalhada do schema do banco de dados `joaocastanheira_bancodedados`, extraída diretamente das definições SQL. Ele inclui detalhes sobre tabelas, colunas, tipos de dados, constraints, índices, funções e triggers.
+
+
+**Nota:** Este documento é gerado a partir do estado atual do schema e deve ser atualizado sempre que houver modificações na estrutura do banco de dados.
+
+
+(Ref: DB Schema Details, ID ref_db_schema_details_001)
+
+
+## Tipos Enumerados Customizados
+
+
+### `payment_method_enum`
+
+
+```sql
+CREATE TYPE payment_method_enum AS ENUM (
+    'credit_card',           -- Cartão de Crédito
+    'debit_card',            -- Cartão de Débito
+    'two_credit_cards',      -- Pagamento com dois cartões
+    'boleto',                -- Boleto Bancário à vista
+    'boleto_installment',    -- Boleto Bancário parcelado
+    'pix',                   -- PIX
+    'pix_credit_card',       -- PIX + Cartão de Crédito
+    'bank_transfer',         -- Transferência Bancária
+    'paypal',                -- PayPal
+    'digital_wallet',        -- Carteiras Digitais (ex: Google Pay, Apple Pay)
+    'intelligent_recovery',  -- Recuperação inteligente
+    'account_balance',       -- Saldo em Conta
+    'hotmart_balance',       -- Saldo Hotmart
+    'other',                 -- Outros métodos
+    'cryptocurrency'         -- Criptomoedas
+);
+COMMENT ON TYPE payment_method_enum IS 'Define os métodos de pagamento aceitos pelo sistema (ex: Cartão de Crédito, Boleto, PIX). Mapeado das strings das APIs.';
+ALTER TYPE payment_method_enum OWNER TO doadmin;
+```
+
+
+### `payment_type_enum`
+
+
+```sql
+CREATE TYPE payment_type_enum AS ENUM (
+    'SINGLE_PAYMENT',       -- Pagamento único (à vista)
+    'INSTALLMENT_PAYMENT'   -- Pagamento parcelado
+);
+COMMENT ON TYPE payment_type_enum IS 'Define se o pagamento foi realizado de forma única (à vista) ou parcelada.';
+ALTER TYPE payment_type_enum OWNER TO doadmin;
+```
+
+
+(Ref: DB Schema Details - Enums, ID ref_db_schema_details_001)
+
+
+## Função de Gatilho (Trigger Function)
+
+
+### `update_updated_at_column()`
+
+
+```sql
+CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$;
+COMMENT ON FUNCTION update_updated_at_column() IS 'Função de gatilho (trigger) que atualiza automaticamente a coluna updated_at para o timestamp atual sempre que uma linha é modificada.';
+ALTER FUNCTION update_updated_at_column() OWNER TO doadmin;
+```
+
+
+(Ref: DB Schema Details - Trigger Function, ID ref_db_schema_details_001)
+
+
+## Definições de Tabelas
+
+
+A seguir estão as definições detalhadas para cada tabela no schema, incluindo a estrutura, comentários, índices e triggers associados.
+
+
+---
+
+
+### Tabela: `addresses`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS addresses (
+    id           SERIAL PRIMARY KEY,
+    address      VARCHAR(255),                              -- Logradouro
+    neighborhood VARCHAR(100),                              -- Bairro
+    country      VARCHAR(100),                              -- País
+    city         VARCHAR(100),                              -- Cidade
+    zip_code     VARCHAR(20),                               -- CEP
+    complement   VARCHAR(255),                              -- Complemento
+    number       VARCHAR(20),                               -- Número
+    ip           VARCHAR(45),                               -- Endereço IP de registro
+    created_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    state        VARCHAR(100)                               -- Estado/UF
+);
+ALTER TABLE addresses OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE addresses IS 'Repositório centralizado de endereços, garantindo precisão e rastreabilidade de localizações de clientes.';
+COMMENT ON COLUMN addresses.id IS 'Identificador único sequencial do endereço.';
+COMMENT ON COLUMN addresses.address IS 'Logradouro (Rua, Avenida, etc.).';
+COMMENT ON COLUMN addresses.neighborhood IS 'Bairro.';
+COMMENT ON COLUMN addresses.country IS 'País (Código ISO ou nome).';
+COMMENT ON COLUMN addresses.city IS 'Cidade.';
+COMMENT ON COLUMN addresses.zip_code IS 'Código de Endereçamento Postal (CEP).';
+COMMENT ON COLUMN addresses.complement IS 'Complemento do endereço (Bloco, Apto, etc.).';
+COMMENT ON COLUMN addresses.number IS 'Número do imóvel.';
+COMMENT ON COLUMN addresses.ip IS 'Endereço IP associado ao registro do endereço (se aplicável).';
+COMMENT ON COLUMN addresses.created_at IS 'Timestamp da criação do registro.';
+COMMENT ON COLUMN addresses.updated_at IS 'Timestamp da última atualização do registro.';
+COMMENT ON COLUMN addresses.state IS 'Estado/UF do endereço.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_addresses_zip_code ON addresses (zip_code);
+CREATE INDEX IF NOT EXISTS idx_addresses_city ON addresses (city);
+CREATE INDEX IF NOT EXISTS idx_addresses_country ON addresses (country);
+CREATE INDEX IF NOT EXISTS idx_addresses_state ON addresses (state);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_addresses_updated_at BEFORE UPDATE ON addresses FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `commission_participants`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS commission_participants (
+    id               SERIAL PRIMARY KEY,
+    platform_id      VARCHAR(255) NOT NULL,                -- ID na plataforma
+    platform_origin  VARCHAR(100) NOT NULL,                -- Nome da plataforma
+    email            VARCHAR(255),                         -- Email do participante
+    name             VARCHAR(255),                         -- Nome completo
+    trader_name      VARCHAR(255),                         -- Nome comercial
+    locale           VARCHAR(20),                          -- Localização/idioma
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    phone_local_code VARCHAR(10),                          -- DDD ou código de área
+    phone_number     VARCHAR(20),                          -- Número do telefone
+    document_type    VARCHAR(10),                          -- Tipo de documento
+    CONSTRAINT uq_participant_platform UNIQUE (platform_id, platform_origin)
+);
+ALTER TABLE commission_participants OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE commission_participants IS 'Armazena participantes de comissão (Hotmart: producers, affiliates; Kiwify: affiliates, partners). Os endereços são armazenados na tabela participant_addresses.';
+COMMENT ON COLUMN commission_participants.id IS 'Identificador único interno do participante.';
+COMMENT ON COLUMN commission_participants.platform_id IS 'Identificador do participante na plataforma de origem.';
+COMMENT ON COLUMN commission_participants.platform_origin IS 'Nome da plataforma de onde este participante foi originado (ex: "Hotmart", "Kiwify").';
+COMMENT ON COLUMN commission_participants.email IS 'E-mail principal do participante.';
+COMMENT ON COLUMN commission_participants.name IS 'Nome completo ou razão social.';
+COMMENT ON COLUMN commission_participants.trader_name IS 'Nome comercial, fantasia ou de afiliado.';
+COMMENT ON COLUMN commission_participants.locale IS 'Código de localidade/idioma do participante (ex: "pt_BR").';
+COMMENT ON COLUMN commission_participants.created_at IS 'Timestamp da criação do registro do participante.';
+COMMENT ON COLUMN commission_participants.updated_at IS 'Timestamp da última atualização do registro do participante.';
+COMMENT ON COLUMN commission_participants.phone_local_code IS 'DDD ou código de área do telefone do participante.';
+COMMENT ON COLUMN commission_participants.phone_number IS 'Número do telefone do participante (sem DDD/código de área).';
+COMMENT ON COLUMN commission_participants.document_type IS 'Tipo de documento do participante (ex: "CPF", "CNPJ", "PASSPORT").';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_commission_participants_email ON commission_participants (email);
+CREATE INDEX IF NOT EXISTS idx_commission_participants_platform_origin ON commission_participants (platform_origin);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_commission_participants_updated_at BEFORE UPDATE ON commission_participants FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `customer_logs`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS customer_logs (
+    id          SERIAL PRIMARY KEY,
+    customer_id INTEGER NOT NULL REFERENCES customers ON DELETE CASCADE,
+    field_name  VARCHAR(100) NOT NULL,                    -- Nome do campo alterado
+    old_value   TEXT,                                     -- Valor anterior
+    new_value   TEXT,                                     -- Novo valor
+    changed_by  VARCHAR(100) DEFAULT 'SYSTEM',            -- Quem fez a alteração
+    created_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE customer_logs OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE customer_logs IS 'Tabela de auditoria para rastrear modificações nos dados da tabela customers.';
+COMMENT ON COLUMN customer_logs.id IS 'Identificador único do registro de log.';
+COMMENT ON COLUMN customer_logs.customer_id IS 'Referência ao cliente cujos dados foram alterados.';
+COMMENT ON COLUMN customer_logs.field_name IS 'Nome da coluna na tabela customers que foi modificada.';
+COMMENT ON COLUMN customer_logs.old_value IS 'Valor do campo antes da alteração.';
+COMMENT ON COLUMN customer_logs.new_value IS 'Valor do campo após a alteração.';
+COMMENT ON COLUMN customer_logs.changed_by IS 'Identificação do agente que realizou a mudança (sistema, usuário, API).';
+COMMENT ON COLUMN customer_logs.created_at IS 'Timestamp do registro da alteração.';
+COMMENT ON COLUMN customer_logs.updated_at IS 'Timestamp da última atualização do registro de log (raramente usado).';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_customer_logs_customer_id ON customer_logs (customer_id);
+CREATE INDEX IF NOT EXISTS idx_customer_logs_created_at ON customer_logs (created_at);
+```
+
+
+**Triggers:**
+*   Nenhum trigger `update_updated_at_column` definido para esta tabela.
+
+
+---
+
+
+### Tabela: `customers`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS customers (
+    id               SERIAL PRIMARY KEY,
+    email            VARCHAR(255) UNIQUE,                  -- Email do cliente (único)
+    name             VARCHAR(255),                         -- Nome completo
+    customer_id      VARCHAR(255),                         -- ID na plataforma de origem
+    address_id       INTEGER REFERENCES addresses,         -- Endereço principal
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    phone_local_code VARCHAR(10),                          -- DDD ou código de área
+    phone_number     VARCHAR(20),                          -- Número do telefone
+    document_type    VARCHAR(10)                           -- Tipo de documento
+);
+ALTER TABLE customers OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE customers IS 'Repositório central de informações dos clientes, unificando dados das diversas plataformas.';
+COMMENT ON COLUMN customers.id IS 'Identificador único interno do cliente.';
+COMMENT ON COLUMN customers.email IS 'E-mail principal do cliente, usado para login e comunicação. Deve ser único.';
+COMMENT ON COLUMN customers.name IS 'Nome completo do cliente.';
+COMMENT ON COLUMN customers.customer_id IS 'Identificador do cliente na plataforma de origem (ex: Kiwify customer ID, Hotmart buyer ID, se aplicável e útil).';
+COMMENT ON COLUMN customers.address_id IS 'Referência ao endereço principal do cliente na tabela addresses.';
+COMMENT ON COLUMN customers.created_at IS 'Timestamp da criação do registro do cliente.';
+COMMENT ON COLUMN customers.updated_at IS 'Timestamp da última atualização do registro do cliente.';
+COMMENT ON COLUMN customers.phone_local_code IS 'DDD ou código de área do telefone do cliente.';
+COMMENT ON COLUMN customers.phone_number IS 'Número do telefone do cliente (sem DDD/código de área).';
+COMMENT ON COLUMN customers.document_type IS 'Tipo de documento do cliente (ex: "CPF", "CNPJ", "PASSPORT").';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_customers_email ON customers (email);
+CREATE INDEX IF NOT EXISTS idx_customers_customer_id ON customers (customer_id);
+CREATE INDEX IF NOT EXISTS idx_customers_address_id ON customers (address_id);
+CREATE INDEX IF NOT EXISTS idx_customers_email_lower ON customers (lower(email::text));
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_customers_updated_at BEFORE UPDATE ON customers FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `offers`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS offers (
+    id              SERIAL PRIMARY KEY,
+    offer_id        VARCHAR(100) NOT NULL,                 -- ID da oferta na plataforma
+    platform_origin VARCHAR(100) NOT NULL,                 -- Nome da plataforma
+    name            VARCHAR(255),                          -- Nome da oferta
+    description     TEXT,                                  -- Descrição da oferta
+    plan_id         INTEGER REFERENCES plans,              -- Plano associado
+    product_id      INTEGER REFERENCES products,           -- Produto associado
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    payment_mode    VARCHAR(50),                           -- Modo de pagamento
+    price           NUMERIC(15, 4),                        -- Preço base
+    currency_code   VARCHAR(3),                            -- Código da moeda
+    CONSTRAINT uq_offer_platform UNIQUE (offer_id, platform_origin)
+);
+ALTER TABLE offers OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE offers IS 'Catálogo de ofertas específicas (links de checkout, promoções) associadas a produtos ou planos, unificando dados das plataformas.';
+COMMENT ON COLUMN offers.id IS 'Identificador único interno da oferta.';
+COMMENT ON COLUMN offers.offer_id IS 'Identificador da oferta na plataforma de origem.';
+COMMENT ON COLUMN offers.platform_origin IS 'Nome da plataforma de onde esta oferta foi originada.';
+COMMENT ON COLUMN offers.name IS 'Nome descritivo da oferta.';
+COMMENT ON COLUMN offers.description IS 'Descrição detalhada das condições da oferta.';
+COMMENT ON COLUMN offers.plan_id IS 'Referência ao plano associado (se for uma oferta de assinatura).';
+COMMENT ON COLUMN offers.product_id IS 'Referência ao produto associado.';
+COMMENT ON COLUMN offers.created_at IS 'Timestamp da criação do registro da oferta.';
+COMMENT ON COLUMN offers.updated_at IS 'Timestamp da última atualização do registro da oferta.';
+COMMENT ON COLUMN offers.payment_mode IS 'Modo de pagamento da oferta (ex: "subscription", "one_time").';
+COMMENT ON COLUMN offers.price IS 'Preço base da oferta.';
+COMMENT ON COLUMN offers.currency_code IS 'Código da moeda da oferta (ex: "BRL", "USD").';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_offers_plan_id ON offers (plan_id);
+CREATE INDEX IF NOT EXISTS idx_offers_product_id ON offers (product_id);
+CREATE INDEX IF NOT EXISTS idx_offers_platform_origin ON offers (platform_origin);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_offers_updated_at BEFORE UPDATE ON offers FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `participant_addresses`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS participant_addresses (
+    id             SERIAL PRIMARY KEY,
+    participant_id INTEGER NOT NULL REFERENCES commission_participants ON DELETE CASCADE,
+    address        VARCHAR(255),                          -- Logradouro
+    neighborhood   VARCHAR(100),                          -- Bairro
+    country        VARCHAR(100),                          -- País
+    city           VARCHAR(100),                          -- Cidade
+    zip_code       VARCHAR(20),                           -- CEP
+    complement     VARCHAR(255),                          -- Complemento
+    number         VARCHAR(20),                           -- Número
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    state          VARCHAR(100)                           -- Estado/UF
+);
+ALTER TABLE participant_addresses OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE participant_addresses IS 'Armazena os endereços específicos de participantes de comissão (afiliados, produtores, co-produtores).';
+COMMENT ON COLUMN participant_addresses.id IS 'Identificador único interno do endereço.';
+COMMENT ON COLUMN participant_addresses.participant_id IS 'Referência ao participante dono deste endereço.';
+COMMENT ON COLUMN participant_addresses.address IS 'Logradouro (Rua, Avenida, etc.).';
+COMMENT ON COLUMN participant_addresses.neighborhood IS 'Bairro.';
+COMMENT ON COLUMN participant_addresses.country IS 'País (Código ISO ou nome).';
+COMMENT ON COLUMN participant_addresses.city IS 'Cidade.';
+COMMENT ON COLUMN participant_addresses.zip_code IS 'Código de Endereçamento Postal (CEP).';
+COMMENT ON COLUMN participant_addresses.complement IS 'Complemento do endereço (Bloco, Apto, etc.).';
+COMMENT ON COLUMN participant_addresses.number IS 'Número do imóvel.';
+COMMENT ON COLUMN participant_addresses.created_at IS 'Timestamp da criação do registro.';
+COMMENT ON COLUMN participant_addresses.updated_at IS 'Timestamp da última atualização do registro.';
+COMMENT ON COLUMN participant_addresses.state IS 'Estado/UF do endereço.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_participant_addresses_participant_id ON participant_addresses (participant_id);
+CREATE INDEX IF NOT EXISTS idx_participant_addresses_country_city ON participant_addresses (country, city);
+CREATE INDEX IF NOT EXISTS idx_participant_addresses_zip_code ON participant_addresses (zip_code);
+CREATE INDEX IF NOT EXISTS idx_participant_addresses_state ON participant_addresses (state);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_participant_addresses_updated_at BEFORE UPDATE ON participant_addresses FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `plans`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS plans (
+    id                  SERIAL PRIMARY KEY,
+    plan_id             VARCHAR(100) NOT NULL,             -- ID do plano na plataforma
+    platform_origin     VARCHAR(100) NOT NULL,             -- Nome da plataforma
+    name                VARCHAR(255),                      -- Nome do plano
+    description         TEXT,                              -- Descrição do plano
+    product_id          INTEGER REFERENCES products,       -- Produto associado
+    created_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    price               NUMERIC(15, 4),                    -- Preço base
+    currency_code       VARCHAR(3),                        -- Código da moeda
+    recurrence_period   VARCHAR(20),                       -- Período (mensal, anual)
+    recurrence_interval INTEGER,                           -- Intervalo entre cobranças
+    trial_days          INTEGER,                           -- Dias de teste gratuito
+    max_cycles          INTEGER,                           -- Ciclos máximos
+    CONSTRAINT uq_plan_platform UNIQUE (plan_id, platform_origin)
+);
+ALTER TABLE plans OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE plans IS 'Catálogo de planos (geralmente associados a assinaturas) vinculados a produtos, unificando dados das plataformas.';
+COMMENT ON COLUMN plans.id IS 'Identificador único interno do plano.';
+COMMENT ON COLUMN plans.plan_id IS 'Identificador do plano na plataforma de origem.';
+COMMENT ON COLUMN plans.platform_origin IS 'Nome da plataforma de onde este plano foi originado.';
+COMMENT ON COLUMN plans.name IS 'Nome oficial do plano.';
+COMMENT ON COLUMN plans.description IS 'Descrição detalhada do que o plano inclui.';
+COMMENT ON COLUMN plans.product_id IS 'Referência ao produto principal ao qual este plano está associado.';
+COMMENT ON COLUMN plans.created_at IS 'Timestamp da criação do registro do plano.';
+COMMENT ON COLUMN plans.updated_at IS 'Timestamp da última atualização do registro do plano.';
+COMMENT ON COLUMN plans.price IS 'Preço base do plano por ciclo de cobrança.';
+COMMENT ON COLUMN plans.currency_code IS 'Código da moeda do preço do plano (ex: "BRL", "USD").';
+COMMENT ON COLUMN plans.recurrence_period IS 'Unidade de tempo da recorrência (ex: "MONTH", "YEAR", "WEEK").';
+COMMENT ON COLUMN plans.recurrence_interval IS 'Intervalo de tempo entre recorrências.';
+COMMENT ON COLUMN plans.trial_days IS 'Número de dias do período de trial gratuito.';
+COMMENT ON COLUMN plans.max_cycles IS 'Número máximo de ciclos de cobrança (0 ou NULL para infinito).';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_plans_product_id ON plans (product_id);
+CREATE INDEX IF NOT EXISTS idx_plans_platform_origin ON plans (platform_origin);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_plans_updated_at BEFORE UPDATE ON plans FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `platform_commission`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS platform_commission (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    participant_id INTEGER NOT NULL REFERENCES commission_participants,
+    amount         NUMERIC(15, 4) NOT NULL,                -- Valor da comissão
+    currency_code  VARCHAR(3) NOT NULL,                    -- Código da moeda
+    source         VARCHAR(100),                           -- Origem da comissão
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE platform_commission OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE platform_commission IS 'Registra comissões (Hotmart: commissions; Kiwify: affiliate_commission, revenue_partners).';
+COMMENT ON COLUMN platform_commission.id IS 'Identificador único interno do registro de comissão.';
+COMMENT ON COLUMN platform_commission.transaction_id IS 'Referência à transação que originou esta comissão.';
+COMMENT ON COLUMN platform_commission.participant_id IS 'Referência ao participante que recebeu a comissão.';
+COMMENT ON COLUMN platform_commission.amount IS 'Valor monetário da comissão.';
+COMMENT ON COLUMN platform_commission.currency_code IS 'Código ISO 4217 da moeda em que a comissão foi paga.';
+COMMENT ON COLUMN platform_commission.source IS 'Indica o tipo/papel do participante que gerou a comissão (ex: "PRODUCER", "AFFILIATE", "COPRODUCER").';
+COMMENT ON COLUMN platform_commission.created_at IS 'Timestamp da criação deste registro de comissão.';
+COMMENT ON COLUMN platform_commission.updated_at IS 'Timestamp da última atualização deste registro de comissão.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_platform_commission_transaction_id ON platform_commission (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_platform_commission_participant_id ON platform_commission (participant_id);
+CREATE INDEX IF NOT EXISTS idx_platform_commission_currency_code ON platform_commission (currency_code);
+CREATE INDEX IF NOT EXISTS idx_platform_commission_source ON platform_commission (source);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_platform_commission_updated_at BEFORE UPDATE ON platform_commission FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `platform_sale_offer_history`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS platform_sale_offer_history (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER REFERENCES transactions,        -- Transação associada
+    code           VARCHAR(100),                           -- Código da oferta
+    offer_id       VARCHAR(100),                           -- ID da oferta
+    offer_name     VARCHAR(255),                           -- Nome da oferta
+    description    VARCHAR(500),                           -- Descrição da oferta
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE platform_sale_offer_history OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE platform_sale_offer_history IS 'Armazena um snapshot da oferta utilizada em uma venda específica no momento da transação, garantindo rastreabilidade histórica mesmo que as ofertas sejam posteriormente modificadas.';
+COMMENT ON COLUMN platform_sale_offer_history.id IS 'Identificador único interno.';
+COMMENT ON COLUMN platform_sale_offer_history.transaction_id IS 'Referência à transação onde esta oferta foi usada.';
+COMMENT ON COLUMN platform_sale_offer_history.code IS 'Código interno ou SKU da oferta/plano no momento da venda.';
+COMMENT ON COLUMN platform_sale_offer_history.offer_id IS 'ID da oferta na plataforma de origem no momento da venda.';
+COMMENT ON COLUMN platform_sale_offer_history.offer_name IS 'Nome da oferta como exibido ao cliente no momento da venda.';
+COMMENT ON COLUMN platform_sale_offer_history.description IS 'Descrição da oferta válida no momento da venda.';
+COMMENT ON COLUMN platform_sale_offer_history.created_at IS 'Timestamp da criação deste registro histórico.';
+COMMENT ON COLUMN platform_sale_offer_history.updated_at IS 'Timestamp da última atualização deste registro histórico.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_platform_sale_offer_history_trans_id ON platform_sale_offer_history (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_platform_sale_offer_history_code ON platform_sale_offer_history (code);
+CREATE INDEX IF NOT EXISTS idx_platform_sale_offer_history_offer_id ON platform_sale_offer_history (offer_id);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_platform_sale_offer_history_updated_at BEFORE UPDATE ON platform_sale_offer_history FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `platform_software_invoice_history`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS platform_software_invoice_history (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    invoice_number VARCHAR(100),                           -- Número da NF
+    invoice_series VARCHAR(20),                            -- Série da NF
+    invoice_key    VARCHAR(255) UNIQUE,                    -- Chave de acesso
+    issue_date     TIMESTAMP WITH TIME ZONE,               -- Data de emissão
+    status         VARCHAR(50),                            -- Status da NF
+    xml_url        TEXT,                                   -- URL do XML
+    pdf_url        TEXT,                                   -- URL do PDF
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE platform_software_invoice_history OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE platform_software_invoice_history IS 'Armazena informações sobre Notas Fiscais emitidas e associadas a transações, potencialmente via integração com software de emissão.';
+COMMENT ON COLUMN platform_software_invoice_history.id IS 'Identificador único interno do registro de NF.';
+COMMENT ON COLUMN platform_software_invoice_history.transaction_id IS 'Referência à transação correspondente.';
+COMMENT ON COLUMN platform_software_invoice_history.invoice_number IS 'Número sequencial da NF.';
+COMMENT ON COLUMN platform_software_invoice_history.invoice_series IS 'Série da NF.';
+COMMENT ON COLUMN platform_software_invoice_history.invoice_key IS 'Chave de acesso única da NF-e.';
+COMMENT ON COLUMN platform_software_invoice_history.issue_date IS 'Timestamp da emissão da NF.';
+COMMENT ON COLUMN platform_software_invoice_history.status IS 'Status atual da NF (ex: "Emitida", "Cancelada").';
+COMMENT ON COLUMN platform_software_invoice_history.xml_url IS 'Link para download do arquivo XML.';
+COMMENT ON COLUMN platform_software_invoice_history.pdf_url IS 'Link para download do arquivo PDF (DANFE).';
+COMMENT ON COLUMN platform_software_invoice_history.created_at IS 'Timestamp da criação do registro de NF.';
+COMMENT ON COLUMN platform_software_invoice_history.updated_at IS 'Timestamp da última atualização do registro de NF.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_plat_soft_inv_hist_trans_id ON platform_software_invoice_history (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_plat_soft_inv_hist_issue_date ON platform_software_invoice_history (issue_date);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_platform_software_invoice_history_updated_at BEFORE UPDATE ON platform_software_invoice_history FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `platform_transaction_payment_history`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS platform_transaction_payment_history (
+    id                SERIAL PRIMARY KEY,
+    transaction_id    INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    payment_method    payment_method_enum,                 -- Método de pagamento
+    payment_type      payment_type_enum,                   -- Tipo de pagamento
+    installments      INTEGER,                             -- Número de parcelas
+    value             NUMERIC(15, 4),                      -- Valor pago
+    payment_date      TIMESTAMP WITH TIME ZONE,            -- Data do pagamento
+    card_brand        VARCHAR(50),                         -- Bandeira do cartão
+    card_last_digits  VARCHAR(4),                          -- Últimos dígitos
+    bank_slip_barcode TEXT,                                -- Código do boleto
+    pix_code          TEXT,                                -- Código PIX
+    metadata          JSONB,                               -- Metadados adicionais
+    created_at        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE platform_transaction_payment_history OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE platform_transaction_payment_history IS 'Armazena os detalhes específicos de cada evento ou tentativa de pagamento associado a uma transação.';
+COMMENT ON COLUMN platform_transaction_payment_history.id IS 'Identificador único interno do registro de pagamento.';
+COMMENT ON COLUMN platform_transaction_payment_history.transaction_id IS 'Referência à transação relacionada.';
+COMMENT ON COLUMN platform_transaction_payment_history.payment_method IS 'Método de pagamento utilizado (mapeado para ENUM).';
+COMMENT ON COLUMN platform_transaction_payment_history.payment_type IS 'Tipo de pagamento (mapeado para ENUM).';
+COMMENT ON COLUMN platform_transaction_payment_history.installments IS 'Número de parcelas (NULL ou 1 para pagamento único).';
+COMMENT ON COLUMN platform_transaction_payment_history.value IS 'Valor monetário pago ou tentado neste evento.';
+COMMENT ON COLUMN platform_transaction_payment_history.payment_date IS 'Timestamp da confirmação ou processamento do pagamento.';
+COMMENT ON COLUMN platform_transaction_payment_history.card_brand IS 'Bandeira do cartão de crédito/débito, se aplicável.';
+COMMENT ON COLUMN platform_transaction_payment_history.card_last_digits IS 'Últimos 4 dígitos do cartão, se aplicável e permitido.';
+COMMENT ON COLUMN platform_transaction_payment_history.bank_slip_barcode IS 'Código de barras do boleto, se aplicável.';
+COMMENT ON COLUMN platform_transaction_payment_history.pix_code IS 'Código ou chave PIX utilizada, se aplicável.';
+COMMENT ON COLUMN platform_transaction_payment_history.metadata IS 'Dados adicionais em formato JSON (ex: detalhes de recusa, ID do gateway de pagamento específico).';
+COMMENT ON COLUMN platform_transaction_payment_history.created_at IS 'Timestamp da criação deste registro de pagamento.';
+COMMENT ON COLUMN platform_transaction_payment_history.updated_at IS 'Timestamp da última atualização deste registro de pagamento.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_plat_trans_pay_hist_trans_id ON platform_transaction_payment_history (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_plat_trans_pay_hist_pay_method ON platform_transaction_payment_history (payment_method);
+CREATE INDEX IF NOT EXISTS idx_plat_trans_pay_hist_pay_date ON platform_transaction_payment_history (payment_date);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_platform_transaction_payment_history_updated_at BEFORE UPDATE ON platform_transaction_payment_history FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `platform_utm_history`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS platform_utm_history (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    utm_source     VARCHAR(255),                           -- Origem
+    utm_medium     VARCHAR(255),                           -- Meio
+    utm_campaign   VARCHAR(255),                           -- Campanha
+    utm_term       VARCHAR(255),                           -- Termo
+    utm_content    VARCHAR(255),                           -- Conteúdo
+    capture_date   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE platform_utm_history OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE platform_utm_history IS 'Armazena os parâmetros UTM capturados no momento de uma transação para rastreamento de marketing.';
+COMMENT ON COLUMN platform_utm_history.id IS 'Identificador único interno do registro UTM.';
+COMMENT ON COLUMN platform_utm_history.transaction_id IS 'Referência à transação associada.';
+COMMENT ON COLUMN platform_utm_history.utm_source IS 'Parâmetro utm_source.';
+COMMENT ON COLUMN platform_utm_history.utm_medium IS 'Parâmetro utm_medium.';
+COMMENT ON COLUMN platform_utm_history.utm_campaign IS 'Parâmetro utm_campaign.';
+COMMENT ON COLUMN platform_utm_history.utm_term IS 'Parâmetro utm_term.';
+COMMENT ON COLUMN platform_utm_history.utm_content IS 'Parâmetro utm_content.';
+COMMENT ON COLUMN platform_utm_history.capture_date IS 'Timestamp da captura dos dados UTM.';
+COMMENT ON COLUMN platform_utm_history.created_at IS 'Timestamp da criação do registro UTM.';
+COMMENT ON COLUMN platform_utm_history.updated_at IS 'Timestamp da última atualização do registro UTM.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_platform_utm_history_transaction_id ON platform_utm_history (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_platform_utm_history_source_medium ON platform_utm_history (utm_source, utm_medium);
+CREATE INDEX IF NOT EXISTS idx_platform_utm_history_campaign ON platform_utm_history (utm_campaign);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_platform_utm_history_updated_at BEFORE UPDATE ON platform_utm_history FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `products`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS products (
+    id              SERIAL PRIMARY KEY,
+    product_id      VARCHAR(100) NOT NULL,                 -- ID do produto na plataforma de origem
+    platform_origin VARCHAR(100) NOT NULL,                 -- Nome da plataforma de origem
+    name            VARCHAR(255),                          -- Nome do produto
+    description     TEXT,                                  -- Descrição detalhada
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_product_platform UNIQUE (product_id, platform_origin)
+);
+ALTER TABLE products OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE products IS 'Catálogo unificado de produtos registrados nas diversas plataformas de venda.';
+COMMENT ON COLUMN products.id IS 'Identificador único interno do produto.';
+COMMENT ON COLUMN products.product_id IS 'Identificador do produto na plataforma de origem.';
+COMMENT ON COLUMN products.platform_origin IS 'Nome da plataforma de onde este produto foi originado.';
+COMMENT ON COLUMN products.name IS 'Nome oficial do produto.';
+COMMENT ON COLUMN products.description IS 'Descrição completa do produto.';
+COMMENT ON COLUMN products.created_at IS 'Timestamp da criação do registro do produto.';
+COMMENT ON COLUMN products.updated_at IS 'Timestamp da última atualização do registro do produto.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_products_name ON products (name);
+CREATE INDEX IF NOT EXISTS idx_products_platform_origin ON products (platform_origin);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_products_updated_at BEFORE UPDATE ON products FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `subscriptions`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id                     SERIAL PRIMARY KEY,
+    subscription_id        VARCHAR(100) NOT NULL,          -- ID da assinatura na plataforma
+    subscriber_id          VARCHAR(100),                   -- ID do assinante na plataforma
+    initial_transaction_id VARCHAR(100),                   -- ID da transação inicial
+    customer_id            INTEGER REFERENCES customers,    -- Cliente associado
+    plan_id                INTEGER REFERENCES plans,        -- Plano associado
+    payment_gateway        VARCHAR(100) NOT NULL,          -- Gateway de pagamento
+    billing_cycle          VARCHAR(50),                    -- Ciclo de cobrança
+    total_recurrences      INTEGER,                        -- Total de recorrências
+    max_cycles             INTEGER,                        -- Ciclos máximos
+    last_update            TIMESTAMP WITH TIME ZONE,       -- Última atualização
+    start_date             TIMESTAMP WITH TIME ZONE,       -- Data de início
+    end_date               TIMESTAMP WITH TIME ZONE,       -- Data de término
+    created_at             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    status_id              INTEGER REFERENCES transaction_statuses, -- Status atual
+    request_billet         BOOLEAN DEFAULT false,          -- Solicitação de boleto
+    next_billing_date      TIMESTAMP WITH TIME ZONE,       -- Próxima data de cobrança
+    cancel_date            TIMESTAMP WITH TIME ZONE,       -- Data de cancelamento
+    CONSTRAINT uq_subscription_gateway UNIQUE (subscription_id, payment_gateway)
+);
+ALTER TABLE subscriptions OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE subscriptions IS 'Registro de todas as assinaturas recorrentes (Hotmart: subscriptions, Kiwify: subscriptions).';
+COMMENT ON COLUMN subscriptions.id IS 'Identificador único interno da assinatura.';
+COMMENT ON COLUMN subscriptions.subscription_id IS 'Identificador único da assinatura na plataforma de origem (gateway).';
+COMMENT ON COLUMN subscriptions.subscriber_id IS 'Identificador do assinante na plataforma de origem (pode ser específico da assinatura).';
+COMMENT ON COLUMN subscriptions.initial_transaction_id IS 'Referência ao ID da transação de compra inicial na plataforma de origem.';
+COMMENT ON COLUMN subscriptions.customer_id IS 'Referência ao cliente (assinante) na tabela customers.';
+COMMENT ON COLUMN subscriptions.plan_id IS 'Referência ao plano associado a esta assinatura na tabela plans.';
+COMMENT ON COLUMN subscriptions.payment_gateway IS 'Nome da plataforma onde a assinatura está ativa.';
+COMMENT ON COLUMN subscriptions.billing_cycle IS 'Período de recorrência da cobrança (ex: "MONTHLY", "YEARLY").';
+COMMENT ON COLUMN subscriptions.total_recurrences IS 'Número total de cobranças previstas no plano da assinatura (se aplicável).';
+COMMENT ON COLUMN subscriptions.max_cycles IS 'Número máximo de ciclos de cobrança permitidos para esta assinatura (se aplicável).';
+COMMENT ON COLUMN subscriptions.last_update IS 'Timestamp da última atualização recebida da plataforma sobre esta assinatura.';
+COMMENT ON COLUMN subscriptions.start_date IS 'Data de início de vigência da assinatura.';
+COMMENT ON COLUMN subscriptions.end_date IS 'Data de término (prevista ou efetiva) da assinatura.';
+COMMENT ON COLUMN subscriptions.created_at IS 'Timestamp da criação do registro da assinatura em nosso banco de dados.';
+COMMENT ON COLUMN subscriptions.updated_at IS 'Timestamp da última atualização do registro da assinatura em nosso banco de dados.';
+COMMENT ON COLUMN subscriptions.status_id IS 'Referência ao status atual da assinatura (FK para transaction_statuses).';
+COMMENT ON COLUMN subscriptions.request_billet IS 'Indica se o assinante solicitou pagamento via boleto para recorrências.';
+COMMENT ON COLUMN subscriptions.next_billing_date IS 'Data prevista para a próxima cobrança da assinatura.';
+COMMENT ON COLUMN subscriptions.cancel_date IS 'Data em que a assinatura foi cancelada, se aplicável.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_subscriptions_subscriber_id ON subscriptions (subscriber_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_customer_id ON subscriptions (customer_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_plan_id ON subscriptions (plan_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_payment_gateway ON subscriptions (payment_gateway);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_start_date ON subscriptions (start_date);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_end_date ON subscriptions (end_date);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status_id ON subscriptions (status_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_next_billing_date ON subscriptions (next_billing_date);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_cancel_date ON subscriptions (cancel_date);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_subscriptions_updated_at BEFORE UPDATE ON subscriptions FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `subscription_status_history`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS subscription_status_history (
+    id              SERIAL PRIMARY KEY,
+    subscription_id INTEGER NOT NULL REFERENCES subscriptions ON DELETE CASCADE,
+    status_id       INTEGER NOT NULL REFERENCES transaction_statuses,
+    change_date     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    reason          TEXT,                                   -- Motivo da mudança
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE subscription_status_history OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE subscription_status_history IS 'Registra o histórico de todas as mudanças de status pelas quais uma assinatura passou ao longo do tempo.';
+COMMENT ON COLUMN subscription_status_history.id IS 'Identificador único interno do registro de histórico.';
+COMMENT ON COLUMN subscription_status_history.subscription_id IS 'Referência à assinatura cujo status mudou.';
+COMMENT ON COLUMN subscription_status_history.status_id IS 'Referência ao novo status (padronizado) que a assinatura assumiu, utilizando a tabela transaction_statuses.';
+COMMENT ON COLUMN subscription_status_history.change_date IS 'Data e hora em que a mudança para este status ocorreu efetivamente (idealmente o timestamp da plataforma).';
+COMMENT ON COLUMN subscription_status_history.reason IS 'Descrição textual opcional explicando o motivo da mudança de status.';
+COMMENT ON COLUMN subscription_status_history.created_at IS 'Timestamp da criação deste registro de histórico.';
+COMMENT ON COLUMN subscription_status_history.updated_at IS 'Timestamp da última atualização deste registro de histórico.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_subscription_status_history_sub_id ON subscription_status_history (subscription_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_status_history_status_id ON subscription_status_history (status_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_status_history_change_date ON subscription_status_history (change_date);
+```
+
+
+**Triggers:**
+*   Nenhum trigger `update_updated_at_column` definido para esta tabela.
+
+
+---
+
+
+### Tabela: `transaction_fees`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS transaction_fees (
+    id                SERIAL PRIMARY KEY,
+    transaction_id    INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    fee_type          VARCHAR(100) NOT NULL,               -- Tipo de taxa
+    total_amount      NUMERIC(15, 4) NOT NULL,             -- Valor total
+    fee_currency_code VARCHAR(3) NOT NULL,                 -- Código da moeda
+    created_at        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    base_amount       NUMERIC(15, 4),                      -- Valor base
+    fixed_amount      NUMERIC(15, 4)                       -- Valor fixo
+);
+ALTER TABLE transaction_fees OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE transaction_fees IS 'Armazena taxas (Hotmart: hotmart_fee; Kiwify: payment.fee).';
+COMMENT ON COLUMN transaction_fees.id IS 'Identificador único interno deste registro de taxa.';
+COMMENT ON COLUMN transaction_fees.transaction_id IS 'Referência à transação sobre a qual esta taxa incidiu.';
+COMMENT ON COLUMN transaction_fees.fee_type IS 'Tipo específico da taxa cobrada (Necessário mapear das APIs, ex: "PLATFORM_FEE", "GATEWAY_FEE").';
+COMMENT ON COLUMN transaction_fees.total_amount IS 'Valor total da taxa (normalmente base_amount + fixed_amount).';
+COMMENT ON COLUMN transaction_fees.fee_currency_code IS 'Código ISO 4217 da moeda em que a taxa foi cobrada.';
+COMMENT ON COLUMN transaction_fees.created_at IS 'Timestamp da criação deste registro de taxa.';
+COMMENT ON COLUMN transaction_fees.updated_at IS 'Timestamp da última atualização deste registro de taxa.';
+COMMENT ON COLUMN transaction_fees.base_amount IS 'Valor base da taxa (percentual sobre o valor da transação).';
+COMMENT ON COLUMN transaction_fees.fixed_amount IS 'Valor fixo da taxa (independente do valor da transação).';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_transaction_fees_transaction_id ON transaction_fees (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_transaction_fees_type ON transaction_fees (fee_type);
+CREATE INDEX IF NOT EXISTS idx_transaction_fees_currency_code ON transaction_fees (fee_currency_code);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_transaction_fees_updated_at BEFORE UPDATE ON transaction_fees FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `transaction_items`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS transaction_items (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    offer_id       INTEGER REFERENCES offers,              -- Oferta adquirida
+    product_id     INTEGER NOT NULL REFERENCES products,   -- Produto adquirido
+    plan_id        INTEGER REFERENCES plans,               -- Plano adquirido
+    quantity       INTEGER DEFAULT 1,                      -- Quantidade
+    unit_price     NUMERIC(15, 4),                         -- Preço unitário
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE transaction_items OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE transaction_items IS 'Detalha os itens individuais (produtos/ofertas/planos) que compõem uma transação. Permite modelar carrinhos com múltiplos itens ou order bumps.';
+COMMENT ON COLUMN transaction_items.id IS 'Identificador único interno do item dentro da transação.';
+COMMENT ON COLUMN transaction_items.transaction_id IS 'Referência à transação principal.';
+COMMENT ON COLUMN transaction_items.offer_id IS 'Referência à oferta específica utilizada (se aplicável).';
+COMMENT ON COLUMN transaction_items.product_id IS 'Referência ao produto adquirido.';
+COMMENT ON COLUMN transaction_items.plan_id IS 'Referência ao plano adquirido (especialmente para itens de assinatura).';
+COMMENT ON COLUMN transaction_items.quantity IS 'Quantidade de unidades deste item específico.';
+COMMENT ON COLUMN transaction_items.unit_price IS 'Preço de uma unidade deste item no momento da transação (na moeda da transação).';
+COMMENT ON COLUMN transaction_items.created_at IS 'Timestamp da criação deste registro de item.';
+COMMENT ON COLUMN transaction_items.updated_at IS 'Timestamp da última atualização deste registro de item.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_transaction_items_transaction_id ON transaction_items (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_transaction_items_offer_id ON transaction_items (offer_id);
+CREATE INDEX IF NOT EXISTS idx_transaction_items_product_id ON transaction_items (product_id);
+CREATE INDEX IF NOT EXISTS idx_transaction_items_plan_id ON transaction_items (plan_id);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_transaction_items_updated_at BEFORE UPDATE ON transaction_items FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `transaction_statuses`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS transaction_statuses (
+    id         SERIAL PRIMARY KEY,
+    status     VARCHAR(50) NOT NULL UNIQUE,                -- Nome do status
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE transaction_statuses OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE transaction_statuses IS 'Normaliza status de APIs (Hotmart: APPROVED->Aprovada, REFUNDED->Reembolsada; Kiwify: paid->Aprovada, refunded->Reembolsada).';
+COMMENT ON COLUMN transaction_statuses.id IS 'Identificador sequencial único do estado.';
+COMMENT ON COLUMN transaction_statuses.status IS 'Nome padronizado do estado (ex: "Aprovada", "Recusada", "Reembolsada", "Ativa", "Inadimplente", "Cancelada Assinante").';
+COMMENT ON COLUMN transaction_statuses.created_at IS 'Timestamp da criação do registro.';
+COMMENT ON COLUMN transaction_statuses.updated_at IS 'Timestamp da última atualização do registro.';
+```
+
+
+**Índices:**
+*   Chave primária `id` é implicitamente indexada.
+*   Constraint `UNIQUE` em `status` cria um índice automaticamente.
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_transaction_statuses_updated_at BEFORE UPDATE ON transaction_statuses FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+### Tabela: `transaction_status_history`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS transaction_status_history (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER NOT NULL REFERENCES transactions ON DELETE CASCADE,
+    status_id      INTEGER NOT NULL REFERENCES transaction_statuses,
+    change_date    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    reason         TEXT,                                   -- Motivo da mudança
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE transaction_status_history OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE transaction_status_history IS 'Registra o histórico de todas as mudanças de status pelas quais uma transação passou.';
+COMMENT ON COLUMN transaction_status_history.id IS 'Identificador único interno do registro de histórico.';
+COMMENT ON COLUMN transaction_status_history.transaction_id IS 'Referência à transação cujo status mudou.';
+COMMENT ON COLUMN transaction_status_history.status_id IS 'Referência ao novo status (padronizado) que a transação assumiu.';
+COMMENT ON COLUMN transaction_status_history.change_date IS 'Data e hora em que a mudança para este status ocorreu efetivamente (idealmente o timestamp da plataforma).';
+COMMENT ON COLUMN transaction_status_history.reason IS 'Descrição textual opcional explicando o motivo da mudança de status.';
+COMMENT ON COLUMN transaction_status_history.created_at IS 'Timestamp da criação deste registro de histórico.';
+COMMENT ON COLUMN transaction_status_history.updated_at IS 'Timestamp da última atualização deste registro de histórico.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_transaction_status_history_trans_id ON transaction_status_history (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_transaction_status_history_status_id ON transaction_status_history (status_id);
+CREATE INDEX IF NOT EXISTS idx_transaction_status_history_change_date ON transaction_status_history (change_date);
+```
+
+
+**Triggers:**
+*   Nenhum trigger `update_updated_at_column` definido para esta tabela.
+
+
+---
+
+
+### Tabela: `transactions`
+
+
+**Definição SQL:**
+```sql
+CREATE TABLE IF NOT EXISTS transactions (
+    id                        SERIAL PRIMARY KEY,
+    transaction_id            VARCHAR(100) NOT NULL,               -- ID na plataforma
+    customer_id               INTEGER REFERENCES customers,        -- Cliente associado
+    payment_gateway           VARCHAR(100) NOT NULL,               -- Gateway de pagamento
+    status_id                 INTEGER REFERENCES transaction_statuses, -- Status atual
+    payment_type              payment_type_enum,                   -- Tipo de pagamento
+    payment_method            payment_method_enum,                 -- Método de pagamento
+    payment_engine            VARCHAR(100),                        -- Motor de pagamento
+    installments_number       INTEGER,                             -- Número de parcelas
+    gateway_transaction_id    VARCHAR(100),                        -- ID no gateway
+    card_brand                VARCHAR(50),                         -- Bandeira do cartão
+    card_last_digits          VARCHAR(4),                          -- Últimos dígitos
+    billet_url                TEXT,                                -- URL do boleto
+    billet_barcode            VARCHAR(100),                        -- Código de barras
+    currency_code             VARCHAR(3) NOT NULL DEFAULT 'BRL',   -- Código da moeda
+    base_price                NUMERIC(15, 4),                      -- Preço base
+    offer_price               NUMERIC(15, 4) NOT NULL,             -- Preço da oferta
+    customer_paid_amount      NUMERIC(15, 4),                      -- Valor pago
+    platform_fee_amount       NUMERIC(15, 4) DEFAULT 0,            -- Taxas da plataforma
+    distributable_amount      NUMERIC(15, 4),                      -- Valor distribuível
+    partner_commission_amount NUMERIC(15, 4) DEFAULT 0,            -- Comissões
+    producer_net_amount       NUMERIC(15, 4),                      -- Valor líquido
+    is_subscription           BOOLEAN DEFAULT false,               -- É assinatura?
+    subscription_id           INTEGER REFERENCES subscriptions,    -- Assinatura associada
+    platform_subscription_id  VARCHAR(100),                        -- ID da assinatura na plataforma
+    recurrence_number         INTEGER,                             -- Número da recorrência
+    tracking_source           VARCHAR(100),                        -- Fonte de tráfego
+    tracking_sck              VARCHAR(100),                        -- SCK de rastreamento
+    under_warranty            BOOLEAN DEFAULT false,               -- Em garantia?
+    warranty_expire_date      TIMESTAMP WITH TIME ZONE,            -- Fim da garantia
+    order_date                TIMESTAMP WITH TIME ZONE,            -- Data do pedido
+    created_at                TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at                TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_transaction_gateway UNIQUE (transaction_id, payment_gateway)
+);
+ALTER TABLE transactions OWNER TO doadmin;
+```
+
+
+**Comentários:**
+```sql
+COMMENT ON TABLE transactions IS 'Registro central de todas as transações (Hotmart: purchases, Kiwify: checkouts). Também armazena transações recorrentes de assinaturas (Hotmart: subscription/transactions, Kiwify: recurring charges).';
+COMMENT ON COLUMN transactions.id IS 'Identificador único interno da transação.';
+COMMENT ON COLUMN transactions.transaction_id IS 'Identificador único da transação na plataforma de origem (gateway).';
+COMMENT ON COLUMN transactions.customer_id IS 'Referência ao cliente associado a esta transação.';
+COMMENT ON COLUMN transactions.payment_gateway IS 'Nome da plataforma de pagamento onde a transação foi processada (ex: "Hotmart", "Kiwify").';
+COMMENT ON COLUMN transactions.status_id IS 'Referência ao status atual da transação (FK para transaction_statuses).';
+COMMENT ON COLUMN transactions.payment_type IS 'Tipo de pagamento (ex: "SINGLE_PAYMENT", "INSTALLMENT_PAYMENT").';
+COMMENT ON COLUMN transactions.payment_method IS 'Método de pagamento utilizado (ex: "credit_card", "boleto", "pix").';
+COMMENT ON COLUMN transactions.payment_engine IS 'Motor/processador de pagamento (ex: "Wirecard", "PagSeguro").';
+COMMENT ON COLUMN transactions.installments_number IS 'Número de parcelas para pagamentos parcelados.';
+COMMENT ON COLUMN transactions.gateway_transaction_id IS 'Identificador da transação no gateway de pagamento.';
+COMMENT ON COLUMN transactions.card_brand IS 'Bandeira do cartão utilizado (ex: "Visa", "Mastercard").';
+COMMENT ON COLUMN transactions.card_last_digits IS 'Últimos 4 dígitos do cartão utilizado.';
+COMMENT ON COLUMN transactions.billet_url IS 'URL para visualização/impressão do boleto.';
+COMMENT ON COLUMN transactions.billet_barcode IS 'Código de barras do boleto para pagamento.';
+COMMENT ON COLUMN transactions.currency_code IS 'Código ISO 4217 da moeda utilizada na transação (ex: "BRL", "USD").';
+COMMENT ON COLUMN transactions.base_price IS 'Preço base original do produto/serviço antes de descontos/ofertas (informativo).';
+COMMENT ON COLUMN transactions.offer_price IS 'Preço efetivo da oferta aplicada nesta transação. Base para cálculo de taxas e comissões.';
+COMMENT ON COLUMN transactions.customer_paid_amount IS 'Valor total efetivamente pago pelo cliente (inclui juros de parcelamento, se houver).';
+COMMENT ON COLUMN transactions.platform_fee_amount IS 'Soma de todas as taxas cobradas pela plataforma sobre esta transação (deduzidas do vendedor).';
+COMMENT ON COLUMN transactions.distributable_amount IS 'Valor restante após dedução das taxas da plataforma (offer_price - platform_fee_amount).';
+COMMENT ON COLUMN transactions.partner_commission_amount IS 'Soma das comissões pagas a todos os parceiros (Afiliados, Co-produtores) nesta transação.';
+COMMENT ON COLUMN transactions.producer_net_amount IS 'Valor líquido final para o produtor após todas as deduções (distributable_amount - partner_commission_amount).';
+COMMENT ON COLUMN transactions.is_subscription IS 'É assinatura?';
+COMMENT ON COLUMN transactions.subscription_id IS 'Assinatura associada';
+COMMENT ON COLUMN transactions.platform_subscription_id IS 'Identificador da assinatura na plataforma de origem.';
+COMMENT ON COLUMN transactions.recurrence_number IS 'Número da recorrência para transações de assinatura.';
+COMMENT ON COLUMN transactions.tracking_source IS 'Parâmetro de rastreamento Source (SRC) identificando a origem da venda.';
+COMMENT ON COLUMN transactions.tracking_sck IS 'Parâmetro de rastreamento SCK para identificação da origem.';
+COMMENT ON COLUMN transactions.under_warranty IS 'Indica se a transação ainda está dentro do período de garantia.';
+COMMENT ON COLUMN transactions.warranty_expire_date IS 'Fim da garantia';
+COMMENT ON COLUMN transactions.order_date IS 'Data do pedido';
+COMMENT ON COLUMN transactions.created_at IS 'Timestamp da criação do registro.';
+COMMENT ON COLUMN transactions.updated_at IS 'Timestamp da última atualização do registro.';
+```
+
+
+**Índices:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_transactions_customer_id ON transactions (customer_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_payment_gateway ON transactions (payment_gateway);
+CREATE INDEX IF NOT EXISTS idx_transactions_order_date ON transactions (order_date);
+CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions (created_at);
+CREATE INDEX IF NOT EXISTS idx_transactions_subscription_id ON transactions (subscription_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_currency_code ON transactions (currency_code);
+CREATE INDEX IF NOT EXISTS idx_transactions_status_id ON transactions (status_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_payment_method ON transactions (payment_method);
+CREATE INDEX IF NOT EXISTS idx_transactions_platform_subscription_id ON transactions (platform_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_recurrence_number ON transactions (recurrence_number);
+```
+
+
+**Triggers:**
+```sql
+CREATE TRIGGER trigger_update_transactions_updated_at BEFORE UPDATE ON transactions FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+```
+
+
+---
+
+
+(Ref: DB Schema Details - Tables, ID ref_db_schema_details_001)
+```

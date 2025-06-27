@@ -1,0 +1,13 @@
+{
+  "migration_type": "Analytics & Knowledge Domains",
+  "start_time": "2025-06-25T08:33:59.734004",
+  "agents_migrated": [
+    "ANALYTICSGPT | Super Track",
+    "DocRAGOptimizer"
+  ],
+  "files_migrated": 37,
+  "errors": [],
+  "end_time": "2025-06-25T08:33:59.745876",
+  "success": true,
+  "agents_migrated_count": 2
+}

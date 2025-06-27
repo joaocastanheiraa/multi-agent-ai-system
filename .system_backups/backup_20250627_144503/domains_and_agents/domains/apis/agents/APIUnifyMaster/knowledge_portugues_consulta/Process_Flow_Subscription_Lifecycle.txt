@@ -1,0 +1,1168 @@
+﻿# `Process_Flow_Subscription_Lifecycle.md` 
+
+
+Fluxo de Processo: Ciclo de Vida de Assinatura
+
+
+```markdown
+---
+title: "Fluxo de Processo: Ciclo de Vida de Assinatura"
+id: "process_flow_subscription_lifecycle_001"
+doc_type: "process_flow"
+doc_version: "1.2"
+date_created: "2025-04-23"
+date_updated: "2025-04-23"
+author: "João Castanheira"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Aprovado"
+environment: "Produção"
+related_docs: [
+  "core_db_architecture_001", 
+  "platform_integration_strategy_001", 
+  "process_flow_purchase_lifecycle_001", 
+  "domain_products_catalog_001", 
+  "analytics_examples_001"
+]
+tables_in_focus: [
+  "subscriptions",
+  "subscription_status_history",
+  "plans",
+  "transactions",
+  "transaction_status_history",
+  "customers",
+  "transaction_fees",
+  "platform_commission"
+]
+embedding_guide_concepts: [
+  "ciclo de vida de assinatura", 
+  "recorrência de pagamento", 
+  "gerenciamento de assinaturas", 
+  "status de assinatura", 
+  "próxima cobrança", 
+  "cancelamento", 
+  "inadimplência", 
+  "trial",
+  "upgrade plano",
+  "downgrade plano",
+  "reativação assinatura",
+  "assinaturas multiplataforma",
+  "normalização de assinaturas",
+  "integração gateway assinatura",
+  "MRR",
+  "churn",
+  "renovação automática"
+]
+---
+
+
+# Fluxo de Processo: Ciclo de Vida de Assinatura
+
+
+## Visão Geral do Processo
+
+
+Este documento descreve o processo completo de gerenciamento de assinaturas no sistema, desde sua criação até seu eventual término. O fluxo foi projetado para funcionar com múltiplas plataformas e gateways de pagamento, unificando os dados em um modelo coerente que permite análises consistentes independentemente da origem.
+
+
+As assinaturas representam um relacionamento contínuo com o cliente, caracterizado por pagamentos recorrentes em intervalos definidos. Cada assinatura está vinculada a um plano específico e gera transações recorrentes que são registradas no sistema da mesma forma que transações únicas, mas com marcadores específicos.
+
+
+Este processo é complementar ao **[Fluxo de Ciclo de Vida de Compras](process_flow_purchase_lifecycle_001.md)** e se integra com a **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md)** para normalizar os dados de diferentes plataformas em um modelo uniforme.
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+## Diagrama do Fluxo de Processo
+
+
+```mermaid
+flowchart TD
+    A[Início: Evento de Assinatura<br>Recebido da Plataforma] --> B{Normalizar Dados<br>para Modelo Unificado}
+    B --> C{Transação Inicial<br>ou Recorrência?}
+
+
+    C -->|Inicial|D[Criação da Assinatura]
+    C -->|Recorrência|E[Atualização da Assinatura<br>Existente]
+
+
+    D --> F[Registro de Transação<br>Inicial de Assinatura]
+    E --> G[Registro de Transação<br>de Recorrência]
+
+
+    F --> H[Definir Status<br>Inicial da Assinatura]
+    G --> I{Verificar Status<br>do Pagamento}
+
+
+    I -->|Aprovado|J[Atualizar Próxima<br>Data de Cobrança]
+    I -->|Recusado/Falha|K[Marcar como<br>Inadimplente]
+    I -->|Outro Status|L[Atualizar Status<br>Conforme Evento]
+
+
+    H --> M[Continuar Monitorando<br>Eventos da Assinatura]
+    J --> M
+    K --> M
+    L --> M
+
+
+    M --> N{Tipo de Evento<br>Subsequente}
+
+
+    N -->|Cancelamento|O[Atualizar Status e<br>Definir Data de Fim]
+    N -->|Upgrade/Downgrade|P[Processar Mudança<br>de Plano]
+    N -->|Reembolso|Q[Processar Reembolso<br>e Impacto na Assinatura]
+    N -->|Outros Eventos|R[Processar Conforme<br>Tipo de Evento]
+
+
+    B -->|Erro Normalização|S[Registrar Erro<br>de Processamento]
+    C -->|Assinatura Não Encontrada|S
+```
+
+
+Este diagrama ilustra o fluxo completo do ciclo de vida de uma assinatura, destacando como o processo começa com a normalização dos dados recebidos, continua com a criação ou atualização da assinatura, e depois monitora eventos subsequentes como renovações, cancelamentos e mudanças de plano.
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+## Modelo de Dados de Assinatura
+
+
+### Tabela Principal: `subscriptions`
+
+
+A tabela `subscriptions` é o centro do modelo de dados para assinaturas, contendo todas as informações essenciais sobre o status atual e configuração de cada assinatura:
+
+
+```sql
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id                     SERIAL PRIMARY KEY,
+    subscription_id        VARCHAR(100) NOT NULL,          -- ID da assinatura na plataforma
+    subscriber_id          VARCHAR(100),                   -- ID do assinante na plataforma
+    initial_transaction_id VARCHAR(100),                   -- ID da transação inicial
+    customer_id            INTEGER REFERENCES customers,   -- Cliente associado
+    plan_id                INTEGER REFERENCES plans,       -- Plano associado
+    payment_gateway        VARCHAR(100) NOT NULL,          -- Gateway de pagamento
+    billing_cycle          VARCHAR(50),                    -- Ciclo de cobrança
+    total_recurrences      INTEGER,                        -- Total de recorrências
+    max_cycles             INTEGER,                        -- Ciclos máximos
+    last_update            TIMESTAMP WITH TIME ZONE,       -- Última atualização
+    start_date             TIMESTAMP WITH TIME ZONE,       -- Data de início
+    end_date               TIMESTAMP WITH TIME ZONE,       -- Data de término
+    status_id              INTEGER REFERENCES transaction_statuses, -- Status atual
+    request_billet         BOOLEAN DEFAULT false,          -- Solicitação de boleto
+    next_billing_date      TIMESTAMP WITH TIME ZONE,       -- Próxima data de cobrança
+    cancel_date            TIMESTAMP WITH TIME ZONE,       -- Data de cancelamento
+    created_at             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_subscription_gateway UNIQUE (subscription_id, payment_gateway)
+);
+```
+
+
+Os campos-chave incluem:
+- `subscription_id` e `payment_gateway`: Identificam unicamente a assinatura em sua plataforma de origem
+- `customer_id` e `plan_id`: Referenciam o cliente e o plano associados a esta assinatura
+- `status_id`: Status atual da assinatura (mapeado para um modelo normalizado)
+- `next_billing_date`: Próxima data de cobrança programada
+- `billing_cycle`, `total_recurrences`, `max_cycles`: Configuração do ciclo de cobrança
+
+
+### Histórico de Status: `subscription_status_history`
+
+
+Esta tabela mantém o registro completo de todas as mudanças de status da assinatura:
+
+
+```sql
+CREATE TABLE IF NOT EXISTS subscription_status_history (
+    id              SERIAL PRIMARY KEY,
+    subscription_id INTEGER NOT NULL REFERENCES subscriptions ON DELETE CASCADE,
+    status_id       INTEGER NOT NULL REFERENCES transaction_statuses,
+    change_date     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    reason          TEXT,                                   -- Motivo da mudança
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+
+### Relação com Transações: `transactions`
+
+
+Cada cobrança recorrente é registrada como uma transação vinculada à assinatura:
+
+
+```sql
+-- Campos relevantes para assinaturas na tabela transactions
+is_subscription           BOOLEAN DEFAULT false,            -- É assinatura?
+subscription_id           INTEGER REFERENCES subscriptions, -- Assinatura associada
+platform_subscription_id  VARCHAR(100),                     -- ID da assinatura na plataforma
+recurrence_number         INTEGER,                          -- Número da recorrência
+```
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+## Fases do Ciclo de Vida
+
+
+### 1. Criação da Assinatura
+
+
+A criação de uma assinatura geralmente é iniciada por um evento de compra bem-sucedida de um plano de assinatura.
+
+
+**Fluxo de Dados:**
+1. Evento recebido da plataforma (via webhook ou API)
+2. Dados normalizados pelo adaptador da plataforma
+3. Cliente identificado ou criado no sistema
+4. Plano identificado ou criado no sistema
+5. Assinatura criada no banco de dados
+
+
+**Processamento da Normalização:**
+```python
+# Pseudocódigo demonstrando a normalização
+def normalize_subscription_event(platform, event_data):
+    # Obtém o adaptador específico da plataforma
+    adapter = get_platform_adapter(platform)
+    
+    # Mapeia os dados específicos da plataforma para o modelo unificado
+    normalized_data = {
+        "subscription_id": adapter.extract_subscription_id(event_data),
+        "platform": platform,
+        "status": adapter.map_status_to_normalized(event_data.status),
+        "plan_id": adapter.extract_plan_id(event_data),
+        "start_date": adapter.extract_start_date(event_data),
+        "next_billing_date": adapter.calculate_next_billing_date(event_data),
+        # Outros campos normalizados
+    }
+    
+    return normalized_data
+```
+
+
+**Criação no Banco de Dados:**
+```sql
+-- Exemplo simplificado de criação de assinatura após normalização
+INSERT INTO subscriptions (
+    subscription_id,
+    subscriber_id,
+    initial_transaction_id,
+    customer_id,
+    plan_id,
+    payment_gateway,
+    billing_cycle,
+    total_recurrences,
+    max_cycles,
+    start_date,
+    next_billing_date,
+    status_id,
+    created_at,
+    updated_at
+)
+VALUES (
+    'SUB_12345',                                      -- ID na plataforma
+    'USER_789',                                       -- ID do assinante na plataforma
+    'TRANS_INITIAL_456',                              -- ID da transação inicial
+    123,                                              -- ID do cliente no sistema
+    456,                                              -- ID do plano no sistema
+    'plataforma_exemplo',                             -- Nome normalizado da plataforma
+    'MONTHLY',                                        -- Ciclo normalizado
+    0,                                                -- Sem recorrências ainda
+    12,                                               -- 12 ciclos máximos (1 ano)
+    '2024-02-01 10:00:00+00',                         -- Data de início
+    '2024-03-01 10:00:00+00',                         -- Próxima cobrança
+    (SELECT id FROM transaction_statuses WHERE status = 'Ativa'),
+    NOW(), NOW()
+);
+```
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+### 2. Registro de Transações Recorrentes
+
+
+Cada cobrança recorrente da assinatura gera uma transação que é processada de maneira similar às transações únicas, mas com marcadores específicos de assinatura.
+
+
+**Fluxo de Dados:**
+1. Evento de cobrança recorrente recebido
+2. Assinatura identificada no sistema
+3. Nova transação criada e vinculada à assinatura
+4. Status da transação registrado
+5. Status da assinatura atualizado (se necessário)
+
+
+**Exemplo de Registro:**
+```sql
+-- Registro de uma transação recorrente
+INSERT INTO transactions (
+    transaction_id,
+    customer_id,
+    payment_gateway,
+    status_id,
+    payment_method,
+    offer_price,
+    is_subscription,
+    subscription_id,
+    platform_subscription_id,
+    recurrence_number,
+    order_date,
+    created_at,
+    updated_at
+)
+VALUES (
+    'TRANS_REC_123',                                  -- ID da transação recorrente
+    123,                                              -- ID do cliente
+    'plataforma_exemplo',                             -- Nome da plataforma
+    (SELECT id FROM transaction_statuses WHERE status = 'Aprovada'),
+    'credit_card'::payment_method_enum,               -- Método de pagamento
+    99.90,                                            -- Valor cobrado
+    TRUE,                                             -- Marcador de assinatura
+    789,                                              -- ID interno da assinatura
+    'SUB_12345',                                      -- ID da assinatura na plataforma
+    2,                                                -- Segunda recorrência
+    '2024-03-01 10:00:00+00',                         -- Data da transação
+    NOW(), NOW()
+);
+```
+
+
+**Atualização da Assinatura:**
+```sql
+-- Após registro da transação recorrente bem-sucedida
+UPDATE subscriptions
+SET
+    total_recurrences = total_recurrences + 1,       -- Incrementa contador
+    next_billing_date = '2024-04-01 10:00:00+00',    -- Atualiza próxima cobrança
+    last_update = NOW(),
+    updated_at = NOW()
+WHERE id = 789;
+```
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+### 3. Gestão de Status da Assinatura
+
+
+Durante seu ciclo de vida, uma assinatura passa por diferentes estados, como ativa, trial, inadimplente, cancelada, etc. Cada mudança de status é registrada no histórico.
+
+
+#### Estados Principais Normalizados
+
+
+O sistema utiliza um conjunto unificado de status para representar os estados das assinaturas de diferentes plataformas:
+
+
+| Status Normalizado | Descrição |
+|:-------------------|:----------|
+| **Ativa** | Assinatura em bom estado, com pagamentos em dia |
+| **Trial** | Período de teste gratuito antes da primeira cobrança |
+| **Inadimplente** | Falha na cobrança mais recente, mas recuperável |
+| **Cancelada Assinante** | Cancelada por solicitação do cliente |
+| **Cancelada Admin** | Cancelada por decisão administrativa |
+| **Cancelada Sistema** | Cancelada automaticamente após falhas recorrentes |
+| **Concluída** | Finalizou naturalmente após completar todos os ciclos |
+| **Suspensa** | Temporariamente inativa, pode ser reativada |
+
+
+#### Diagrama de Transições de Status
+
+
+```mermaid
+stateDiagram-v2
+    [*] --> Trial: Início com trial
+    [*] --> Ativa: Início sem trial
+    
+    Trial --> Ativa: Fim do trial, pagamento aprovado
+    Trial --> CanceladaAssinante: Cancelamento durante trial
+    
+    Ativa --> Inadimplente: Falha na cobrança
+    Ativa --> CanceladaAssinante: Solicitação do cliente
+    Ativa --> CanceladaAdmin: Decisão administrativa
+    Ativa --> Concluída: Atingiu número máximo de ciclos
+    
+    Inadimplente --> Ativa: Pagamento regularizado
+    Inadimplente --> CanceladaSistema: Falhas persistentes
+    
+    CanceladaAssinante --> Ativa: Reativação
+    CanceladaAdmin --> Ativa: Reativação
+    CanceladaSistema --> Ativa: Reativação
+    Suspensa --> Ativa: Reativação
+    
+    Concluída --> [*]
+    CanceladaAssinante --> [*]
+    CanceladaAdmin --> [*]
+    CanceladaSistema --> [*]
+```
+
+
+#### Processo de Atualização de Status
+
+
+Quando um evento indica mudança de status da assinatura:
+
+
+1. O status original da plataforma é normalizado
+2. Verifica-se se a transição é válida
+3. O status atual é atualizado na tabela `subscriptions`
+4. A mudança é registrada na tabela `subscription_status_history`
+
+
+```sql
+-- Exemplo de atualização para status Inadimplente
+UPDATE subscriptions
+SET
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Inadimplente'),
+    last_update = '2024-03-05 10:00:00+00',
+    updated_at = NOW()
+WHERE
+    subscription_id = 'SUB_12345'
+    AND payment_gateway = 'plataforma_exemplo';
+
+
+-- Registro no histórico
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    change_date,
+    reason,
+    created_at,
+    updated_at
+)
+VALUES (
+    789,                                              -- ID interno da assinatura
+    (SELECT id FROM transaction_statuses WHERE status = 'Inadimplente'),
+    '2024-03-05 10:00:00+00',                         -- Data do evento
+    'Falha na cobrança recorrente após 3 tentativas',  -- Motivo da mudança
+    NOW(), NOW()
+);
+```
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+### 4. Recuperação de Inadimplência
+
+
+Quando uma assinatura se torna inadimplente devido a falhas na cobrança, o sistema pode processar eventos de tentativas de recuperação.
+
+
+**Processo de Recuperação:**
+1. Tentativas automáticas de recobrança gerenciadas pela plataforma
+2. Cada tentativa gera um evento que é registrado como nova transação
+3. Se uma tentativa for bem-sucedida, a assinatura retorna ao status "Ativa"
+4. Se todas as tentativas falharem, a assinatura pode ser cancelada pelo sistema
+
+
+**Exemplo de Registro de Tentativa:**
+```sql
+-- Registro de tentativa de recuperação
+INSERT INTO transactions (
+    transaction_id,
+    customer_id,
+    payment_gateway,
+    status_id,
+    payment_method,
+    offer_price,
+    is_subscription,
+    subscription_id,
+    platform_subscription_id,
+    recurrence_number,
+    order_date,
+    created_at,
+    updated_at
+)
+VALUES (
+    'TRANS_RETRY_456',                                -- ID da transação de retry
+    123,                                              -- ID do cliente
+    'plataforma_exemplo',                             -- Nome da plataforma
+    (SELECT id FROM transaction_statuses WHERE status = 'Recusada'),
+    'credit_card'::payment_method_enum,               -- Método de pagamento
+    99.90,                                            -- Valor cobrado
+    TRUE,                                             -- Marcador de assinatura
+    789,                                              -- ID interno da assinatura
+    'SUB_12345',                                      -- ID da assinatura na plataforma
+    2,                                                -- Mantém mesmo número da recorrência
+    '2024-03-03 10:00:00+00',                         -- Data da tentativa
+    NOW(), NOW()
+);
+```
+
+
+**Registro de Recuperação Bem-sucedida:**
+```sql
+-- Se uma tentativa posterior for bem-sucedida
+UPDATE subscriptions
+SET
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Ativa'),
+    next_billing_date = '2024-04-01 10:00:00+00',    -- Atualiza próxima cobrança
+    last_update = NOW(),
+    updated_at = NOW()
+WHERE id = 789;
+
+
+-- Registro no histórico
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    change_date,
+    reason,
+    created_at,
+    updated_at
+)
+VALUES (
+    789,                                              -- ID interno da assinatura
+    (SELECT id FROM transaction_statuses WHERE status = 'Ativa'),
+    NOW(),                                            -- Data do evento
+    'Assinatura recuperada após pagamento bem-sucedido',
+    NOW(), NOW()
+);
+```
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+### 5. Cancelamento de Assinatura
+
+
+Existem várias formas de cancelamento, cada uma com seu fluxo específico:
+
+
+1. **Cancelamento pelo Assinante**: O cliente solicita cancelamento
+2. **Cancelamento Administrativo**: Decidido pelo produtor/administrador
+3. **Cancelamento pelo Sistema**: Após falhas persistentes de pagamento
+4. **Finalização Natural**: Quando atinge o número máximo de ciclos
+
+
+**Processo de Cancelamento:**
+1. Evento de cancelamento recebido e normalizado
+2. Status atualizado para o tipo específico de cancelamento
+3. Datas relevantes (`cancel_date` e `end_date`) definidas
+4. Mudança registrada no histórico
+
+
+**Exemplo de Cancelamento pelo Assinante:**
+```sql
+-- Atualização da assinatura
+UPDATE subscriptions
+SET
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Cancelada Assinante'),
+    cancel_date = '2024-03-15 09:30:00+00',          -- Data do pedido de cancelamento
+    end_date = '2024-04-01 00:00:00+00',             -- Fim do período pago
+    last_update = NOW(),
+    updated_at = NOW()
+WHERE
+    subscription_id = 'SUB_12345'
+    AND payment_gateway = 'plataforma_exemplo';
+
+
+-- Registro no histórico
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    change_date,
+    reason,
+    created_at,
+    updated_at
+)
+VALUES (
+    789,                                              -- ID interno da assinatura
+    (SELECT id FROM transaction_statuses WHERE status = 'Cancelada Assinante'),
+    '2024-03-15 09:30:00+00',                         -- Data do evento
+    'Cancelamento solicitado pelo cliente: "Não estou usando o suficiente"',
+    NOW(), NOW()
+);
+```
+
+
+**Exemplo de Finalização Natural:**
+```sql
+-- Atualização da assinatura após atingir max_cycles
+UPDATE subscriptions
+SET
+    status_id = (SELECT id FROM transaction_statuses WHERE status = 'Concluída'),
+    end_date = '2025-02-01 00:00:00+00',             -- Data de término
+    last_update = NOW(),
+    updated_at = NOW()
+WHERE id = 789;
+
+
+-- Registro no histórico
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    change_date,
+    reason,
+    created_at,
+    updated_at
+)
+VALUES (
+    789,                                              -- ID interno da assinatura
+    (SELECT id FROM transaction_statuses WHERE status = 'Concluída'),
+    '2025-02-01 00:00:00+00',                         -- Data do evento
+    'Assinatura concluída naturalmente após atingir o máximo de 12 ciclos',
+    NOW(), NOW()
+);
+```
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+### 6. Atualização de Plano (Upgrade/Downgrade)
+
+
+Os assinantes podem mudar de plano durante o ciclo de vida da assinatura, seja para um plano superior (upgrade) ou inferior (downgrade).
+
+
+**Processo de Mudança de Plano:**
+1. Evento de atualização de plano recebido
+2. Novo plano identificado no sistema
+3. Assinatura atualizada com referência ao novo plano
+4. Mudança registrada no histórico
+5. Próxima data de cobrança possivelmente ajustada
+
+
+**Exemplo de Upgrade de Plano:**
+```sql
+-- Atualização da assinatura para novo plano
+UPDATE subscriptions
+SET
+    plan_id = 567,                                    -- ID do novo plano
+    billing_cycle = 'MONTHLY',                        -- Ciclo do novo plano
+    last_update = '2024-04-10 11:15:00+00',           -- Data do evento
+    next_billing_date = '2024-05-01 10:00:00+00',     -- Ajustada se necessário
+    updated_at = NOW()
+WHERE id = 789;
+
+
+-- Registro no histórico
+INSERT INTO subscription_status_history (
+    subscription_id,
+    status_id,
+    change_date,
+    reason,
+    created_at,
+    updated_at
+)
+VALUES (
+    789,                                              -- ID interno da assinatura
+    (SELECT status_id FROM subscriptions WHERE id = 789), -- Mantém status atual
+    '2024-04-10 11:15:00+00',                         -- Data do evento
+    'Upgrade de plano: "Básico" (ID:456) para "Premium" (ID:567)',
+    NOW(), NOW()
+);
+```
+
+
+Em alguns casos, dependendo da plataforma, um upgrade pode envolver o cancelamento da assinatura atual e a criação de uma nova. Nestes casos, ambas as assinaturas são registradas e vinculadas através de metadata ou campos específicos.
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+## Integração com Plataformas
+
+
+O sistema unifica assinaturas de múltiplas plataformas através de adaptadores específicos que normalizam os dados antes do processamento.
+
+
+### Normalização de Dados
+
+
+Cada plataforma possui seu próprio modelo de dados, terminologia e eventos para assinaturas. O processo de normalização garante que todos esses formatos diferentes sejam convertidos para um modelo unificado antes de serem processados.
+
+
+**Aspectos Normalizados:**
+1. **Status**: Mapeamento dos status específicos de cada plataforma para o conjunto padrão
+2. **Ciclos de Cobrança**: Padronização dos diferentes formatos de ciclo
+3. **Datas**: Normalização para formato comum com fuso horário consistente
+4. **Identificadores**: Preservação dos IDs originais junto com IDs internos
+
+
+Para detalhes específicos sobre como cada plataforma é integrada, consulte a seção sobre assinaturas na **[Estratégia de Integração Multiplataforma](platform_integration_strategy_001.md#integração-de-assinaturas)**.
+
+
+### Adaptadores de Plataforma
+
+
+Os adaptadores de plataforma são responsáveis por:
+1. Receber e validar eventos da plataforma
+2. Extrair dados relevantes e normalizá-los
+3. Identificar o tipo de evento (criação, atualização, cancelamento, etc.)
+4. Mapear IDs e referências externas para o modelo interno
+5. Lidar com particularidades de cada plataforma
+
+
+Cada plataforma pode ter um conjunto diferente de eventos e comportamentos relacionados a assinaturas, que são abstraídos pelos adaptadores para manter o fluxo principal consistente.
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+## Métricas e Análises
+
+
+### Principais Métricas de Assinatura
+
+
+O modelo de dados permite calcular diversas métricas importantes sobre assinaturas:
+
+
+#### 1. MRR (Monthly Recurring Revenue)
+
+
+```sql
+-- Cálculo do MRR total normalizado para base mensal
+SELECT
+    SUM(
+        CASE
+            WHEN p.recurrence_period = 'MONTH' THEN p.price
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33
+            ELSE p.price
+        END
+    ) AS mrr_total
+FROM
+    subscriptions s
+JOIN
+    plans p ON s.plan_id = p.id
+WHERE
+    s.status_id = (SELECT id FROM transaction_statuses WHERE status = 'Ativa');
+```
+
+
+#### 2. Taxa de Churn
+
+
+```sql
+-- Taxa de churn para um período específico
+WITH periodo AS (
+    SELECT 
+        '2024-01-01'::date AS inicio,
+        '2024-01-31'::date AS fim
+),
+cancelamentos AS (
+    SELECT COUNT(*) AS total
+    FROM subscription_status_history ssh
+    JOIN transaction_statuses ts ON ssh.status_id = ts.id
+    WHERE 
+        ts.status IN ('Cancelada Assinante', 'Cancelada Sistema', 'Cancelada Admin')
+        AND ssh.change_date >= (SELECT inicio FROM periodo)
+        AND ssh.change_date <= (SELECT fim FROM periodo)
+),
+base_ativas AS (
+    SELECT COUNT(*) AS total
+    FROM subscriptions s
+    JOIN transaction_statuses ts ON s.status_id = ts.id
+    WHERE 
+        s.start_date < (SELECT inicio FROM periodo)
+        AND (ts.status = 'Ativa' OR s.cancel_date > (SELECT inicio FROM periodo))
+)
+SELECT
+    (SELECT total FROM cancelamentos) AS cancelamentos,
+    (SELECT total FROM base_ativas) AS base_inicial,
+    CASE WHEN (SELECT total FROM base_ativas) > 0
+        THEN ROUND(((SELECT total FROM cancelamentos)::numeric / (SELECT total FROM base_ativas)) * 100, 2)
+        ELSE 0
+    END AS taxa_churn_mensal
+```
+
+
+#### 3. LTV (Lifetime Value)
+
+
+```sql
+-- Cálculo simples de LTV por plano
+WITH mrr_por_plano AS (
+    SELECT
+        p.id AS plan_id,
+        p.name AS plan_name,
+        AVG(
+            CASE
+                WHEN p.recurrence_period = 'MONTH' THEN p.price
+                WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+                WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33
+                ELSE p.price
+            END
+        ) AS mrr_medio
+    FROM
+        subscriptions s
+    JOIN
+        plans p ON s.plan_id = p.id
+    WHERE
+        s.status_id = (SELECT id FROM transaction_statuses WHERE status = 'Ativa')
+    GROUP BY
+        p.id, p.name
+),
+churn_por_plano AS (
+    SELECT
+        p.id AS plan_id,
+        COUNT(DISTINCT s.id) AS cancelamentos,
+        COUNT(DISTINCT s2.id) AS total_ativas,
+        CASE WHEN COUNT(DISTINCT s2.id) > 0
+            THEN (COUNT(DISTINCT s.id)::numeric / COUNT(DISTINCT s2.id))
+            ELSE 0
+        END AS taxa_churn_mensal
+    FROM
+        plans p
+    LEFT JOIN
+        subscriptions s ON s.plan_id = p.id
+    LEFT JOIN
+        subscription_status_history ssh ON s.id = ssh.subscription_id
+    LEFT JOIN
+        transaction_statuses ts ON ssh.status_id = ts.id
+    LEFT JOIN
+        subscriptions s2 ON s2.plan_id = p.id
+    WHERE
+        ts.status IN ('Cancelada Assinante', 'Cancelada Sistema', 'Cancelada Admin')
+        AND ssh.change_date >= CURRENT_DATE - INTERVAL '30 days'
+        AND s2.status_id = (SELECT id FROM transaction_statuses WHERE status = 'Ativa')
+    GROUP BY
+        p.id
+)
+SELECT
+    m.plan_id,
+    m.plan_name,
+    m.mrr_medio,
+    COALESCE(c.taxa_churn_mensal, 0.05) AS taxa_churn_mensal,
+    CASE WHEN COALESCE(c.taxa_churn_mensal, 0.05) > 0
+        THEN ROUND(m.mrr_medio / COALESCE(c.taxa_churn_mensal, 0.05), 2)
+        ELSE 0
+    END AS ltv_estimado
+FROM
+    mrr_por_plano m
+LEFT JOIN
+    churn_por_plano c ON m.plan_id = c.plan_id;
+```
+
+
+### Análises de Coorte
+
+
+```sql
+-- Exemplo de análise de coorte (retenção por mês de assinatura)
+WITH cohorts AS (
+    SELECT
+        DATE_TRUNC('month', s.start_date) AS cohort_month,
+        s.id AS subscription_id
+    FROM
+        subscriptions s
+    WHERE
+        s.start_date >= '2023-01-01'
+        AND s.start_date < '2024-01-01'
+),
+recurrence_months AS (
+    SELECT
+        c.cohort_month,
+        c.subscription_id,
+        EXTRACT(MONTH FROM AGE(t.order_date, c.cohort_month)) AS month_number
+    FROM
+        cohorts c
+    JOIN
+        transactions t ON t.subscription_id = c.subscription_id
+    WHERE
+        t.is_subscription = TRUE
+        AND t.status_id = (SELECT id FROM transaction_statuses WHERE status = 'Aprovada')
+)
+SELECT
+    TO_CHAR(cohort_month, 'YYYY-MM') AS cohort,
+    COUNT(DISTINCT subscription_id) AS total_subscribers,
+    COUNT(DISTINCT CASE WHEN month_number = 1 THEN subscription_id END) AS month_1,
+    COUNT(DISTINCT CASE WHEN month_number = 2 THEN subscription_id END) AS month_2,
+    COUNT(DISTINCT CASE WHEN month_number = 3 THEN subscription_id END) AS month_3,
+    COUNT(DISTINCT CASE WHEN month_number = 6 THEN subscription_id END) AS month_6,
+    COUNT(DISTINCT CASE WHEN month_number = 12 THEN subscription_id END) AS month_12,
+    ROUND(COUNT(DISTINCT CASE WHEN month_number = 1 THEN subscription_id END) * 100.0 / COUNT(DISTINCT subscription_id), 1) AS retention_month_1,
+    ROUND(COUNT(DISTINCT CASE WHEN month_number = 3 THEN subscription_id END) * 100.0 / COUNT(DISTINCT subscription_id), 1) AS retention_month_3,
+    ROUND(COUNT(DISTINCT CASE WHEN month_number = 12 THEN subscription_id END) * 100.0 / COUNT(DISTINCT subscription_id), 1) AS retention_month_12
+FROM
+    recurrence_months
+GROUP BY
+    cohort_month
+ORDER BY
+    cohort_month;
+```
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+## Desafios e Considerações
+
+
+### Diferenças entre Plataformas
+
+
+Cada plataforma tem particularidades na forma como gerencia assinaturas:
+
+
+| Aspecto | Desafio | Solução |
+|:--------|:--------|:--------|
+| **Ciclos de Cobrança** | Diferentes formatos e nomenclaturas | Mapeamento para formato padrão (MONTHLY, YEARLY, etc.) |
+| **Períodos de Trial** | Implementações variadas | Normalização para campos `start_date` e `next_billing_date` |
+| **Cancelamentos** | Políticas diferentes de término | Distinção entre `cancel_date` e `end_date` |
+| **Recuperação** | Estratégias distintas de retry | Rastreamento de todas as tentativas como transações separadas |
+| **Upgrade/Downgrade** | Algumas criam nova assinatura | Mecanismo para vincular assinaturas relacionadas |
+| **Inadimplência** | Tempos diferentes até cancelamento | Registro detalhado no histórico de status |
+
+
+### Tratamento de Eventos Fora de Ordem
+
+
+Os eventos de webhook podem chegar fora de ordem, especialmente em sistemas distribuídos. O sistema implementa:
+
+
+1. **Verificação de Sequência Lógica**: Avalia se a transição de status faz sentido
+2. **Timestamps de Evento**: Usa o timestamp original do evento, não o de recebimento
+3. **Controle de Versão**: Para algumas plataformas, rastreia versões de eventos
+4. **Prioridade de Status**: Alguns status têm prioridade sobre outros (ex: cancelamento)
+
+
+```python
+# Pseudocódigo para verificação de prioridade de status
+def should_apply_status_change(current_status, new_status, current_timestamp, new_timestamp):
+    # Define prioridades para cada status (maior número = maior prioridade)
+    priority = {
+        "Trial": 1,
+        "Ativa": 2,
+        "Inadimplente": 3,
+        "Cancelada Assinante": 5,
+        "Cancelada Admin": 5,
+        "Cancelada Sistema": 4,
+        "Concluída": 5,
+    }
+    
+    # Verifica se o novo status tem prioridade maior
+    if priority.get(new_status, 0) > priority.get(current_status, 0):
+        return True
+    
+    # Mesmo status, verifica timestamp mais recente
+    if new_status == current_status and new_timestamp > current_timestamp:
+        return True
+    
+    # Status de menor prioridade, mas timestamp mais recente por margem significativa
+    if new_timestamp > current_timestamp + timedelta(hours=24):
+        return True
+    
+    return False
+```
+
+
+### Cálculo de Métricas Financeiras
+
+
+O cálculo de métricas como MRR e LTV enfrenta desafios devido a:
+
+
+1. **Diferentes Moedas**: Necessidade de normalização para uma moeda base
+2. **Ciclos Variados**: Conversão para base mensal (MRR) 
+3. **Taxas e Comissões**: Decisão sobre incluir ou não no cálculo
+4. **Upgrades/Downgrades**: Contabilização correta nas análises
+
+
+A solução adotada é criar funções SQL dedicadas para cada métrica, documentando claramente as premissas e transformações aplicadas.
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+## Integrações e Fluxos Relacionados
+
+
+### Integração com o Fluxo de Compras
+
+
+O ciclo de vida de assinatura se integra com o **[Fluxo de Ciclo de Vida de Compras](process_flow_purchase_lifecycle_001.md)** nos seguintes pontos:
+
+
+1. **Transação Inicial**: A compra inicial de um plano gera uma transação que inicia a assinatura
+2. **Transações Recorrentes**: Cada cobrança recorrente gera uma transação
+3. **Compartilhamento de Status**: Os status são normalizados e compartilhados entre os fluxos
+4. **Processamento de Pagamentos**: O mesmo mecanismo é usado para processar pagamentos
+
+
+### Integração com o Catálogo de Produtos
+
+
+A relação com o **[Catálogo de Produtos](domain_products_catalog_001.md)** se dá através:
+
+
+1. **Planos**: Cada assinatura está vinculada a um plano específico
+2. **Configuração de Recorrência**: Os parâmetros de recorrência são definidos no plano
+3. **Preços e Ciclos**: As condições financeiras vêm do catálogo de produtos
+
+
+### Fluxo de Dados entre Sistemas
+
+
+```mermaid
+flowchart TD
+    A[Plataforma de Pagamento] -->|Eventos de Assinatura| B[Sistema de Integração]
+    B -->|Normalização| C[Banco de Dados Unificado]
+    C -->|Tabela subscriptions| D[Sistema de Análise]
+    C -->|Tabela transactions| E[Sistema Financeiro]
+    C -->|Histórco de Status| F[Atendimento ao Cliente]
+    B -->|Eventos de Cobrança| G[Fluxo de Compras]
+    G -->|Transações Recorrentes| C
+```
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+## Consultas Úteis para Monitoramento
+
+
+### Estado Atual de Assinaturas
+
+
+```sql
+-- Visão geral de assinaturas por status
+SELECT
+    ts.status,
+    COUNT(*) AS total,
+    COUNT(*) FILTER (WHERE s.next_billing_date < CURRENT_DATE) AS atencao_necessaria
+FROM
+    subscriptions s
+JOIN
+    transaction_statuses ts ON s.status_id = ts.id
+GROUP BY
+    ts.status
+ORDER BY
+    total DESC;
+```
+
+
+### Histórico Completo de uma Assinatura
+
+
+```sql
+-- Detalhes principais
+SELECT
+    s.subscription_id,
+    s.payment_gateway,
+    c.email AS customer_email,
+    p.name AS plan_name,
+    ts.status AS current_status,
+    s.start_date,
+    s.next_billing_date,
+    s.total_recurrences
+FROM
+    subscriptions s
+JOIN
+    customers c ON s.customer_id = c.id
+JOIN
+    plans p ON s.plan_id = p.id
+JOIN
+    transaction_statuses ts ON s.status_id = ts.id
+WHERE
+    s.id = 789;
+
+
+-- Histórico de status
+SELECT
+    ssh.change_date,
+    ts.status,
+    ssh.reason
+FROM
+    subscription_status_history ssh
+JOIN
+    transaction_statuses ts ON ssh.status_id = ts.id
+WHERE
+    ssh.subscription_id = 789
+ORDER BY
+    ssh.change_date;
+
+
+-- Transações relacionadas
+SELECT
+    t.transaction_id,
+    t.recurrence_number,
+    ts.status AS transaction_status,
+    t.payment_method,
+    t.offer_price,
+    t.order_date
+FROM
+    transactions t
+JOIN
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE
+    t.subscription_id = 789
+ORDER BY
+    t.recurrence_number, t.order_date;
+```
+
+
+### Previsão de Receita Futura
+
+
+```sql
+-- Previsão de receita para os próximos 3 meses
+WITH meses AS (
+    SELECT generate_series(
+        date_trunc('month', CURRENT_DATE),
+        date_trunc('month', CURRENT_DATE) + interval '3 months', 
+        interval '1 month'
+    ) AS mes
+)
+SELECT
+    TO_CHAR(m.mes, 'YYYY-MM') AS mes_cobranca,
+    COUNT(DISTINCT s.id) AS assinaturas_previstas,
+    SUM(
+        CASE
+            WHEN p.recurrence_period = 'MONTH' THEN p.price
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33
+            ELSE p.price
+        END
+    ) AS receita_prevista
+FROM
+    meses m
+LEFT JOIN
+    subscriptions s ON 
+        date_trunc('month', s.next_billing_date) = m.mes
+        AND s.status_id = (SELECT id FROM transaction_statuses WHERE status = 'Ativa')
+LEFT JOIN
+    plans p ON s.plan_id = p.id
+GROUP BY
+    m.mes
+ORDER BY
+    m.mes;
+```
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+
+
+## Conclusão
+
+
+O ciclo de vida de assinatura é um processo complexo que envolve múltiplas etapas, desde a criação inicial até seu eventual término. O sistema utiliza um modelo unificado que:
+
+
+1. **Normaliza dados** de múltiplas plataformas em uma estrutura coerente
+2. **Rastreia todo o histórico** de mudanças de status e transações
+3. **Gerencia todos os eventos** do ciclo de vida (criação, cobrança, inadimplência, cancelamento)
+4. **Permite análises consistentes** independentemente da plataforma de origem
+
+
+Este design robusto possibilita não apenas a gestão eficiente das assinaturas em si, mas também análises avançadas sobre métricas críticas como MRR, churn e LTV, fornecendo insights valiosos para a tomada de decisões de negócio.
+
+
+A abordagem multiplataforma garante que, independentemente de onde a assinatura se originou, ela possa ser gerenciada e analisada de forma consistente, criando uma visão unificada do negócio recorrente.
+
+
+(Ref: Ciclo de Vida de Assinatura, ID process_flow_subscription_lifecycle_001)
+```

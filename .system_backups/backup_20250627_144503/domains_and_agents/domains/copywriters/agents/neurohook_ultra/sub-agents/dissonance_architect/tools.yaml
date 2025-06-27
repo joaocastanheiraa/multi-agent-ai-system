@@ -1,0 +1,15 @@
+null
+...
+name: specialized_knowledge_search
+  description: "Busca informações específicas sobre técnicas de dissonância cognitiva
+    e interrupção de padrões neurais"
+  type: vector_search
+  parameters:
+    table: knowledge_base
+    metadata_filters:
+      sub_agent_id: Dissonance-Architect
+    sql_filter: "metadata->>'domain' = 'pattern_interruption' OR metadata->>'domain'
+      = 'cognitive_dissonance' OR metadata->>'domain' = 'expectation_violation' OR
+      metadata->>'domain' = 'tension_engineering'"
+    limit: 5
+

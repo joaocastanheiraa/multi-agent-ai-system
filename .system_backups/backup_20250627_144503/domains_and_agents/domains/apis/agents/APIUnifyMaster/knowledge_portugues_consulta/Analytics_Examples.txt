@@ -1,0 +1,1589 @@
+﻿# `Analytics_Examples.md` com exemplos de consultas analíticas para o banco de dados.
+
+
+```markdown
+---
+title: "Exemplos Analíticos: Consultas SQL para Extração de Métricas"
+id: "analytics_examples_001"
+doc_type: "analytics"
+doc_version: "1.0"
+date_created: "2025-04-23"
+date_updated: "2025-04-23"
+author: "João Castanheira"
+db_name: "joaocastanheira_bancodedados"
+db_version: "1.0"
+doc_status: "Aprovado"
+environment: "Produção"
+related_docs: ["core_db_arch_001", "process_flow_purchase_lifecycle_001", "process_flow_subscription_lifecycle_001", "process_flow_commission_system_001", "process_flow_refund_chargeback_001", "ref_db_schema_details_001"]
+tables_in_flow: ["transactions", "subscriptions", "customers", "plans", "products", "platform_commission", "transaction_status_history", "subscription_status_history", "transaction_items", "transaction_statuses", "commission_participants"]
+primary_key_entities: ["transactions.id", "subscriptions.id", "customers.id", "products.id", "plans.id"]
+embedding_guide_concepts: ["consultas analíticas", "métricas de vendas", "indicadores de desempenho", "MRR", "GMV", "receita bruta", "receita líquida", "churn rate", "taxa de retenção", "LTV", "CAC", "taxa de conversão", "refund rate", "valor médio de compra", "dashboard", "relatórios financeiros", "análise de cohort", "segmentação de clientes", "performance de afiliados", "desempenho de produto", "otimização de consultas", "índices", "monitoramento", "análise de tendências", "previsão de receita", "SQL analítico"]
+---
+
+
+# Exemplos Analíticos: Consultas SQL para Extração de Métricas
+
+
+## Visão Geral
+
+
+Este documento apresenta exemplos práticos de consultas SQL para extrair métricas-chave e indicadores de desempenho do banco de dados `joaocastanheira_bancodedados`. Estas consultas foram projetadas para fornecer insights valiosos sobre o desempenho do negócio, comportamento dos clientes, eficácia de produtos e comissões de afiliados.
+
+
+Cada consulta inclui:
+- Uma descrição do seu propósito
+- A consulta SQL completa e comentada
+- Explicação sobre os resultados esperados
+- Considerações sobre otimização de performance
+- Dicas para interpretação dos resultados
+
+
+Embora estas consultas possam ser utilizadas diretamente em ferramentas SQL, elas também servem como base para dashboards, relatórios automatizados e análises ad-hoc mais específicas.
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+## Métricas de Vendas e Receita
+
+
+### Receita Total por Período
+
+
+**Propósito**: Analisar a receita bruta, receita líquida e taxas de plataforma por mês, permitindo visualizar tendências de crescimento e sazonalidade.
+
+
+```sql
+-- Receita bruta, líquida e taxas por mês (apenas transações aprovadas)
+SELECT 
+    DATE_TRUNC('month', t.order_date) AS month,
+    COUNT(*) AS total_transactions,
+    SUM(t.offer_price) AS gross_revenue,
+    SUM(t.platform_fee_amount) AS platform_fees,
+    SUM(t.partner_commission_amount) AS partner_commissions,
+    SUM(t.producer_net_amount) AS net_revenue,
+    ROUND(AVG(t.offer_price), 2) AS average_order_value,
+    ROUND(SUM(t.producer_net_amount) * 100.0 / NULLIF(SUM(t.offer_price), 0), 2) AS profit_margin_pct
+FROM 
+    transactions t
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    ts.status = 'Aprovada'
+    AND t.order_date BETWEEN '2023-01-01' AND '2023-11-30'
+GROUP BY 
+    DATE_TRUNC('month', t.order_date)
+ORDER BY 
+    month;
+```
+
+
+**Interpretação dos Resultados**:
+- `gross_revenue`: Valor total cobrado dos clientes
+- `platform_fees`: Taxas cobradas pelas plataformas
+- `partner_commissions`: Comissões pagas a afiliados e parceiros
+- `net_revenue`: Receita final do produtor após todas as deduções
+- `profit_margin_pct`: Percentual da receita bruta que se converte em receita líquida
+
+
+**Otimização**:
+- Esta consulta se beneficia de índices em `transactions.order_date` e `transactions.status_id`
+- Para grandes volumes de dados, considere materializar esta visão em uma tabela de agregação diária ou semanal
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+### GMV (Gross Merchandise Value) por Produto
+
+
+**Propósito**: Identificar os produtos que geram maior volume de vendas, ajudando a direcionar esforços de marketing e desenvolvimento.
+
+
+```sql
+-- GMV e número de vendas por produto, incluindo taxa de reembolso
+WITH product_sales AS (
+    SELECT 
+        p.id AS product_id,
+        p.name AS product_name,
+        p.platform_origin,
+        COUNT(*) AS total_transactions,
+        SUM(t.offer_price) AS gross_revenue,
+        COUNT(CASE WHEN ts.status = 'Reembolsada' THEN 1 END) AS refunded_count,
+        SUM(CASE WHEN ts.status = 'Reembolsada' THEN t.offer_price ELSE 0 END) AS refunded_amount
+    FROM 
+        transactions t
+    JOIN 
+        transaction_items ti ON t.id = ti.transaction_id
+    JOIN 
+        products p ON ti.product_id = p.id
+    JOIN 
+        transaction_statuses ts ON t.status_id = ts.id
+    WHERE 
+        t.order_date BETWEEN '2023-01-01' AND '2023-11-30'
+        AND ts.status IN ('Aprovada', 'Reembolsada') -- Incluir apenas transações finalizadas
+    GROUP BY 
+        p.id, p.name, p.platform_origin
+)
+SELECT 
+    product_name,
+    platform_origin,
+    total_transactions,
+    gross_revenue,
+    ROUND(gross_revenue / total_transactions, 2) AS average_price,
+    refunded_count,
+    refunded_amount,
+    ROUND((refunded_count * 100.0) / NULLIF(total_transactions, 0), 2) AS refund_rate_pct,
+    ROUND((refunded_amount * 100.0) / NULLIF(gross_revenue, 0), 2) AS refunded_amount_pct,
+    RANK() OVER (ORDER BY gross_revenue DESC) AS revenue_rank
+FROM 
+    product_sales
+ORDER BY 
+    gross_revenue DESC;
+```
+
+
+**Interpretação dos Resultados**:
+- Identifica produtos mais vendidos tanto em volume quanto em valor
+- Calcula a taxa de reembolso por produto, um indicador importante de satisfação
+- O ranking permite identificar rapidamente os produtos de maior receita
+
+
+**Otimização**:
+- Utilize índices nas tabelas de junção, especialmente `transaction_items.transaction_id` e `transaction_items.product_id`
+- A Common Table Expression (CTE) melhora a legibilidade sem impactar significativamente a performance
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+### Receita Recorrente (MRR) de Assinaturas
+
+
+**Propósito**: Calcular a Receita Mensal Recorrente (MRR) para o modelo de assinatura, uma métrica crítica para negócios baseados em assinatura.
+
+
+```sql
+-- MRR (Monthly Recurring Revenue) e contagem de assinantes ativos por mês
+WITH monthly_dates AS (
+    -- Gerar sequência de datas mensais para análise
+    SELECT generate_series(
+        DATE_TRUNC('month', '2023-01-01'::date),
+        DATE_TRUNC('month', '2023-11-01'::date),
+        '1 month'::interval
+    ) AS month_date
+),
+subscription_mrr AS (
+    -- Calcular MRR por assinatura, normalizando diferentes periodicidades
+    SELECT 
+        s.id AS subscription_id,
+        p.price AS base_price,
+        p.currency_code,
+        CASE 
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            WHEN p.recurrence_period = 'QUARTER' THEN p.price / 3
+            WHEN p.recurrence_period = 'SEMIANNUAL' THEN p.price / 6
+            WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33 -- Aproximação de semanas por mês
+            ELSE p.price -- Assume periodicidade mensal como padrão
+        END AS monthly_recurring_revenue
+    FROM 
+        subscriptions s
+    JOIN 
+        plans p ON s.plan_id = p.id
+    WHERE 
+        p.currency_code = 'BRL' -- Filtrar por moeda para consistência
+)
+SELECT 
+    d.month_date,
+    COUNT(DISTINCT s.id) AS active_subscriptions,
+    ROUND(SUM(sm.monthly_recurring_revenue), 2) AS total_mrr,
+    ROUND(AVG(sm.monthly_recurring_revenue), 2) AS average_mrr_per_subscriber
+FROM 
+    monthly_dates d
+LEFT JOIN 
+    subscriptions s ON 
+        DATE_TRUNC('month', s.start_date) <= d.month_date
+        AND (
+            s.end_date IS NULL OR 
+            DATE_TRUNC('month', s.end_date) >= d.month_date
+        )
+LEFT JOIN 
+    subscription_mrr sm ON s.id = sm.subscription_id
+LEFT JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+WHERE 
+    ts.status = 'Ativa' OR 
+    (
+        s.start_date <= (d.month_date + INTERVAL '1 month - 1 day')
+        AND (s.end_date IS NULL OR s.end_date >= d.month_date)
+        AND ts.status NOT IN ('Cancelada pelo Cliente', 'Cancelada por Inadimplência', 'Concluída')
+    )
+GROUP BY 
+    d.month_date
+ORDER BY 
+    d.month_date;
+```
+
+
+**Interpretação dos Resultados**:
+- `active_subscriptions`: Número de assinaturas ativas no último dia do mês
+- `total_mrr`: Receita recorrente mensal total
+- `average_mrr_per_subscriber`: Valor médio pago por assinante mensalmente
+
+
+**Otimização**:
+- Esta consulta é complexa e pode ser pesada; considere materializá-la em uma tabela de métricas
+- Índices em `subscriptions.start_date`, `subscriptions.end_date` e `subscriptions.status_id` são essenciais
+- A geração de série temporal garante que meses sem assinaturas também apareçam no resultado
+
+
+**Notas Adicionais**:
+- A normalização de diferentes periodicidades (anual, semestral, etc.) para uma base mensal é essencial para o cálculo correto do MRR
+- Para empresas com moedas múltiplas, considere implementar a conversão para uma moeda padrão
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+### Crescimento de Novas Vendas vs. Receita Recorrente
+
+
+**Propósito**: Analisar a composição da receita entre novas vendas (transações únicas) e receita de assinaturas recorrentes, para entender o crescimento de cada modelo de negócio.
+
+
+```sql
+-- Comparativo de receita: Vendas únicas vs. Receita recorrente
+WITH monthly_revenue AS (
+    SELECT 
+        DATE_TRUNC('month', t.order_date) AS month,
+        SUM(CASE WHEN t.is_subscription = false THEN t.offer_price ELSE 0 END) AS one_time_revenue,
+        SUM(CASE 
+                WHEN t.is_subscription = true AND t.recurrence_number = 1 THEN t.offer_price
+                ELSE 0
+            END) AS new_subscription_revenue,
+        SUM(CASE 
+                WHEN t.is_subscription = true AND t.recurrence_number > 1 THEN t.offer_price
+                ELSE 0
+            END) AS recurring_revenue
+    FROM 
+        transactions t
+    JOIN 
+        transaction_statuses ts ON t.status_id = ts.id
+    WHERE 
+        ts.status = 'Aprovada'
+        AND t.order_date BETWEEN '2023-01-01' AND '2023-11-30'
+    GROUP BY 
+        DATE_TRUNC('month', t.order_date)
+)
+SELECT 
+    month,
+    one_time_revenue,
+    new_subscription_revenue,
+    recurring_revenue,
+    (one_time_revenue + new_subscription_revenue + recurring_revenue) AS total_revenue,
+    ROUND((one_time_revenue * 100.0) / 
+        NULLIF((one_time_revenue + new_subscription_revenue + recurring_revenue), 0), 1) AS one_time_pct,
+    ROUND((new_subscription_revenue * 100.0) / 
+        NULLIF((one_time_revenue + new_subscription_revenue + recurring_revenue), 0), 1) AS new_subs_pct,
+    ROUND((recurring_revenue * 100.0) / 
+        NULLIF((one_time_revenue + new_subscription_revenue + recurring_revenue), 0), 1) AS recurring_pct,
+    -- Cálculo de crescimento mês a mês (MoM)
+    ROUND(
+        ((one_time_revenue + new_subscription_revenue + recurring_revenue) - 
+        LAG(one_time_revenue + new_subscription_revenue + recurring_revenue) OVER (ORDER BY month)) * 100.0 / 
+        NULLIF(LAG(one_time_revenue + new_subscription_revenue + recurring_revenue) OVER (ORDER BY month), 0),
+        1
+    ) AS total_revenue_growth_pct
+FROM 
+    monthly_revenue
+ORDER BY 
+    month;
+```
+
+
+**Interpretação dos Resultados**:
+- `one_time_revenue`: Receita de vendas únicas (sem assinatura)
+- `new_subscription_revenue`: Receita da primeira cobrança de assinaturas
+- `recurring_revenue`: Receita de cobranças recorrentes (segunda em diante)
+- `total_revenue_growth_pct`: Crescimento percentual em relação ao mês anterior
+
+
+**Otimização**:
+- Esta consulta requer análise de grandes volumes de dados; considere otimizar com índices adequados
+- Os cálculos de percentual podem ser movidos para a aplicação caso a performance seja crítica
+
+
+**Insights Esperados**:
+- À medida que o negócio amadurece, geralmente a proporção de receita recorrente tende a aumentar
+- Reduções na receita de novas vendas podem ser compensadas pelo crescimento da receita recorrente
+- Variações sazonais geralmente afetam mais as novas vendas do que a receita recorrente
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+## Métricas de Assinatura e Engajamento
+
+
+### Taxa de Churn e Retenção de Assinantes
+
+
+**Propósito**: Calcular a taxa de churn (cancelamento) e retenção de assinantes por mês, métricas críticas para negócios baseados em assinatura.
+
+
+```sql
+-- Taxa de churn e retenção de assinantes por mês
+WITH monthly_dates AS (
+    -- Gerar sequência de datas mensais para análise
+    SELECT generate_series(
+        DATE_TRUNC('month', '2023-01-01'::date),
+        DATE_TRUNC('month', '2023-10-01'::date),
+        '1 month'::interval
+    ) AS month_start,
+    generate_series(
+        DATE_TRUNC('month', '2023-01-01'::date) + INTERVAL '1 month - 1 day',
+        DATE_TRUNC('month', '2023-10-01'::date) + INTERVAL '1 month - 1 day',
+        '1 month'::interval
+    ) AS month_end
+),
+monthly_metrics AS (
+    -- Calcular métricas mensais de assinantes
+    SELECT 
+        d.month_start,
+        d.month_end,
+        COUNT(DISTINCT CASE 
+            WHEN s.start_date < d.month_start 
+                AND (s.end_date IS NULL OR s.end_date > d.month_end) 
+            THEN s.id 
+        END) AS active_start,
+        COUNT(DISTINCT CASE 
+            WHEN s.start_date BETWEEN d.month_start AND d.month_end 
+            THEN s.id 
+        END) AS new_subscribers,
+        COUNT(DISTINCT CASE 
+            WHEN s.end_date BETWEEN d.month_start AND d.month_end
+                AND ts.status IN ('Cancelada pelo Cliente', 'Cancelada por Inadimplência')
+            THEN s.id 
+        END) AS churned_subscribers,
+        COUNT(DISTINCT CASE 
+            WHEN s.start_date < d.month_start 
+                AND (s.end_date IS NULL OR s.end_date > d.month_end) 
+            THEN s.id 
+        END) + 
+        COUNT(DISTINCT CASE 
+            WHEN s.start_date BETWEEN d.month_start AND d.month_end 
+            THEN s.id 
+        END) -
+        COUNT(DISTINCT CASE 
+            WHEN s.end_date BETWEEN d.month_start AND d.month_end
+                AND ts.status IN ('Cancelada pelo Cliente', 'Cancelada por Inadimplência')
+            THEN s.id 
+        END) AS active_end
+    FROM 
+        monthly_dates d
+    LEFT JOIN 
+        subscriptions s ON 
+            s.start_date <= d.month_end AND
+            (s.end_date IS NULL OR s.end_date >= d.month_start)
+    LEFT JOIN 
+        transaction_statuses ts ON s.status_id = ts.id
+    GROUP BY 
+        d.month_start, d.month_end
+)
+SELECT 
+    TO_CHAR(month_start, 'YYYY-MM') AS month,
+    active_start,
+    new_subscribers,
+    churned_subscribers,
+    active_end,
+    ROUND((churned_subscribers * 100.0) / NULLIF(active_start, 0), 2) AS churn_rate_pct,
+    ROUND(((active_start - churned_subscribers) * 100.0) / NULLIF(active_start, 0), 2) AS retention_rate_pct,
+    ROUND(((active_end - active_start) * 100.0) / NULLIF(active_start, 0), 2) AS net_growth_pct
+FROM 
+    monthly_metrics
+ORDER BY 
+    month_start;
+```
+
+
+**Interpretação dos Resultados**:
+- `active_start`: Assinantes ativos no início do mês
+- `new_subscribers`: Novos assinantes durante o mês
+- `churned_subscribers`: Assinantes que cancelaram durante o mês
+- `active_end`: Assinantes ativos no final do mês
+- `churn_rate_pct`: Percentual de assinantes que cancelaram em relação aos ativos no início
+- `retention_rate_pct`: Percentual de assinantes que permaneceram ativos
+- `net_growth_pct`: Crescimento líquido da base de assinantes
+
+
+**Otimização**:
+- Esta consulta é computacionalmente intensiva; considere criação de índices em `subscriptions.start_date` e `subscriptions.end_date`
+- Para bases muito grandes, uma implementação materializada pode ser necessária
+
+
+**Insights Esperados**:
+- Uma taxa de churn saudável geralmente está abaixo de 5% mensal para B2C e 2% para B2B
+- Picos de churn podem sinalizar problemas de produto ou mudanças no mercado
+- O crescimento líquido deve ser positivo para sustentar o negócio a longo prazo
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+### Análise de Cohort para Assinantes
+
+
+**Propósito**: Avaliar a retenção de clientes ao longo do tempo agrupando-os por "cohort" (mês de início), permitindo analisar padrões de retenção para diferentes grupos de clientes.
+
+
+```sql
+-- Análise de cohort para retenção de assinantes
+WITH cohort_base AS (
+    -- Identificar o cohort (mês de início) para cada assinatura
+    SELECT 
+        s.id AS subscription_id,
+        DATE_TRUNC('month', s.start_date) AS cohort_month,
+        s.start_date,
+        s.end_date,
+        s.status_id
+    FROM 
+        subscriptions s
+    WHERE 
+        s.start_date >= '2023-01-01'
+        AND s.start_date < '2023-11-01'
+),
+cohort_sizes AS (
+    -- Calcular o tamanho de cada cohort
+    SELECT 
+        cohort_month,
+        COUNT(*) AS cohort_size
+    FROM 
+        cohort_base
+    GROUP BY 
+        cohort_month
+),
+retention_data AS (
+    -- Para cada cohort e mês, calcular quantas assinaturas ainda estavam ativas
+    SELECT 
+        cb.cohort_month,
+        DATE_TRUNC('month', GENERATE_SERIES(
+            cb.cohort_month, 
+            '2023-11-01'::date - INTERVAL '1 day', 
+            '1 month'::interval
+        )) AS activity_month,
+        COUNT(DISTINCT CASE 
+            WHEN cb.end_date IS NULL OR 
+                 cb.end_date >= (DATE_TRUNC('month', GENERATE_SERIES) + INTERVAL '1 month - 1 day')
+            THEN cb.subscription_id
+        END) AS active_subscribers
+    FROM 
+        cohort_base cb
+    CROSS JOIN 
+        GENERATE_SERIES(
+            cb.cohort_month, 
+            '2023-11-01'::date - INTERVAL '1 day', 
+            '1 month'::interval
+        )
+    GROUP BY 
+        cb.cohort_month, activity_month
+),
+cohort_retention AS (
+    -- Calcular percentuais de retenção para cada cohort e mês
+    SELECT 
+        rd.cohort_month,
+        TO_CHAR(rd.cohort_month, 'YYYY-MM') AS cohort_name,
+        rd.activity_month,
+        (rd.activity_month - rd.cohort_month) / '1 month'::interval AS months_since_start,
+        rd.active_subscribers,
+        cs.cohort_size,
+        ROUND((rd.active_subscribers * 100.0) / NULLIF(cs.cohort_size, 0), 1) AS retention_rate_pct
+    FROM 
+        retention_data rd
+    JOIN 
+        cohort_sizes cs ON rd.cohort_month = cs.cohort_month
+)
+-- Formatar como uma matriz de retenção (pivotada para melhor visualização)
+SELECT 
+    cohort_name,
+    cohort_size,
+    MAX(CASE WHEN months_since_start = 0 THEN retention_rate_pct END) AS "M0",
+    MAX(CASE WHEN months_since_start = 1 THEN retention_rate_pct END) AS "M1",
+    MAX(CASE WHEN months_since_start = 2 THEN retention_rate_pct END) AS "M2",
+    MAX(CASE WHEN months_since_start = 3 THEN retention_rate_pct END) AS "M3",
+    MAX(CASE WHEN months_since_start = 4 THEN retention_rate_pct END) AS "M4",
+    MAX(CASE WHEN months_since_start = 5 THEN retention_rate_pct END) AS "M5",
+    MAX(CASE WHEN months_since_start = 6 THEN retention_rate_pct END) AS "M6",
+    MAX(CASE WHEN months_since_start = 7 THEN retention_rate_pct END) AS "M7",
+    MAX(CASE WHEN months_since_start = 8 THEN retention_rate_pct END) AS "M8",
+    MAX(CASE WHEN months_since_start = 9 THEN retention_rate_pct END) AS "M9",
+    MAX(CASE WHEN months_since_start = 10 THEN retention_rate_pct END) AS "M10",
+    MAX(CASE WHEN months_since_start = 11 THEN retention_rate_pct END) AS "M11"
+FROM 
+    cohort_retention
+GROUP BY 
+    cohort_name, cohort_size, cohort_month
+ORDER BY 
+    cohort_month;
+```
+
+
+**Interpretação dos Resultados**:
+- Cada linha representa um cohort (grupo de assinantes que começaram no mesmo mês)
+- As colunas M0, M1, M2, etc. representam os meses desde o início da assinatura
+- Os valores são a porcentagem de assinantes que permaneceram ativos naquele mês
+- M0 normalmente é 100% (todos os assinantes ativos no mês de início)
+
+
+**Otimização**:
+- Esta consulta requer geração intensiva de séries temporais; considere mecanismos de cache
+- O formato pivotado é ideal para visualização, mas pode ser mais eficiente armazenar os dados sem pivotamento
+
+
+**Insights Esperados**:
+- Padrões de queda consistentes (ex: queda grande após o primeiro mês) podem indicar problemas no onboarding
+- Melhorias na retenção ao longo do tempo (comparando cohorts) indicam melhorias no produto
+- Curvas de retenção que estabilizam após alguns meses indicam um núcleo de usuários fiéis
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+### Lifetime Value (LTV) de Clientes por Produto
+
+
+**Propósito**: Calcular o valor total que um cliente gera durante seu ciclo de vida com a empresa, ajudando a orientar decisões de marketing e aquisição de clientes.
+
+
+```sql
+-- LTV (Lifetime Value) por cliente, segmentado por produto
+WITH customer_product_transactions AS (
+    -- Agregar transações por cliente e produto
+    SELECT 
+        c.id AS customer_id,
+        c.email,
+        p.id AS product_id,
+        p.name AS product_name,
+        MIN(t.order_date) AS first_purchase_date,
+        MAX(t.order_date) AS last_purchase_date,
+        COUNT(*) AS purchase_count,
+        SUM(CASE WHEN ts.status = 'Aprovada' THEN t.offer_price ELSE 0 END) AS total_spent,
+        SUM(CASE WHEN ts.status = 'Reembolsada' THEN t.offer_price ELSE 0 END) AS total_refunded,
+        EXTRACT(EPOCH FROM (MAX(t.order_date) - MIN(t.order_date))) / 86400 AS days_as_customer
+    FROM 
+        customers c
+    JOIN 
+        transactions t ON c.id = t.customer_id
+    JOIN 
+        transaction_items ti ON t.id = ti.transaction_id
+    JOIN 
+        products p ON ti.product_id = p.id
+    JOIN 
+        transaction_statuses ts ON t.status_id = ts.id
+    WHERE 
+        ts.status IN ('Aprovada', 'Reembolsada')
+        AND t.order_date >= '2022-01-01'
+    GROUP BY 
+        c.id, c.email, p.id, p.name
+),
+product_customer_metrics AS (
+    -- Calcular métricas por produto
+    SELECT 
+        product_id,
+        product_name,
+        COUNT(DISTINCT customer_id) AS total_customers,
+        AVG(total_spent - total_refunded) AS average_customer_value,
+        AVG(purchase_count) AS average_purchases_per_customer,
+        AVG(CASE WHEN days_as_customer > 0 THEN (total_spent - total_refunded) / days_as_customer * 365 ELSE 0 END) AS annual_ltv
+    FROM 
+        customer_product_transactions
+    GROUP BY 
+        product_id, product_name
+),
+customer_ltv_bands AS (
+    -- Classificar clientes em bandas de valor
+    SELECT 
+        cpt.product_id,
+        cpt.product_name,
+        SUM(CASE WHEN (cpt.total_spent - cpt.total_refunded) < 100 THEN 1 ELSE 0 END) AS customers_under_100,
+        SUM(CASE WHEN (cpt.total_spent - cpt.total_refunded) BETWEEN 100 AND 499.99 THEN 1 ELSE 0 END) AS customers_100_499,
+        SUM(CASE WHEN (cpt.total_spent - cpt.total_refunded) BETWEEN 500 AND 999.99 THEN 1 ELSE 0 END) AS customers_500_999,
+        SUM(CASE WHEN (cpt.total_spent - cpt.total_refunded) >= 1000 THEN 1 ELSE 0 END) AS customers_1000_plus
+    FROM 
+        customer_product_transactions cpt
+    GROUP BY 
+        cpt.product_id, cpt.product_name
+)
+SELECT 
+    m.product_name,
+    m.total_customers,
+    ROUND(m.average_customer_value, 2) AS avg_customer_value,
+    ROUND(m.average_purchases_per_customer, 1) AS avg_purchases,
+    ROUND(m.annual_ltv, 2) AS annual_ltv,
+    b.customers_under_100,
+    b.customers_100_499,
+    b.customers_500_999,
+    b.customers_1000_plus,
+    ROUND((b.customers_under_100 * 100.0) / NULLIF(m.total_customers, 0), 1) AS pct_under_100,
+    ROUND((b.customers_100_499 * 100.0) / NULLIF(m.total_customers, 0), 1) AS pct_100_499,
+    ROUND((b.customers_500_999 * 100.0) / NULLIF(m.total_customers, 0), 1) AS pct_500_999,
+    ROUND((b.customers_1000_plus * 100.0) / NULLIF(m.total_customers, 0), 1) AS pct_1000_plus
+FROM 
+    product_customer_metrics m
+JOIN 
+    customer_ltv_bands b ON m.product_id = b.product_id
+ORDER BY 
+    m.annual_ltv DESC;
+```
+
+
+**Interpretação dos Resultados**:
+- `avg_customer_value`: Valor médio gasto por cliente ao longo do seu ciclo de vida
+- `avg_purchases`: Número médio de compras por cliente
+- `annual_ltv`: Projeção do valor anualizado por cliente (útil para comparação)
+- Distribuição em bandas de valor (under_100, 100_499, etc.): Indica a concentração de clientes por faixa de valor
+
+
+**Otimização**:
+- Esta consulta é intensiva em computação; considere materializar resultados intermediários
+- Utilize CTEs (Common Table Expressions) para melhorar a legibilidade e manutenção
+
+
+**Insights Esperados**:
+- Produtos com alto LTV podem justificar maiores investimentos em aquisição de clientes
+- Distribuição por bandas de valor ajuda a identificar segmentos para estratégias específicas
+- Ao comparar o LTV com o Custo de Aquisição de Cliente (CAC), é possível avaliar a saúde financeira do modelo de negócio
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+## Métricas de Comissões e Parcerias
+
+
+### Desempenho de Afiliados e Comissões
+
+
+**Propósito**: Analisar o desempenho dos afiliados, identificando os mais produtivos e calculando métricas-chave como taxa de conversão e comissão média.
+
+
+```sql
+-- Desempenho de afiliados em termos de vendas e comissões
+WITH affiliate_performance AS (
+    SELECT 
+        cp.id AS participant_id,
+        cp.name AS affiliate_name,
+        cp.email AS affiliate_email,
+        COUNT(DISTINCT t.id) AS total_transactions,
+        COUNT(DISTINCT t.customer_id) AS unique_customers,
+        SUM(t.offer_price) AS total_sales_amount,
+        SUM(pc.amount) AS total_commission,
+        AVG(pc.amount) AS average_commission,
+        MIN(t.order_date) AS first_sale_date,
+        MAX(t.order_date) AS last_sale_date
+    FROM 
+        commission_participants cp
+    JOIN 
+        platform_commission pc ON cp.id = pc.participant_id
+    JOIN 
+        transactions t ON pc.transaction_id = t.id
+    JOIN 
+        transaction_statuses ts ON t.status_id = ts.id
+    WHERE 
+        pc.source = 'AFFILIATE'
+        AND ts.status = 'Aprovada'
+        AND t.order_date BETWEEN '2023-01-01' AND '2023-11-30'
+    GROUP BY 
+        cp.id, cp.name, cp.email
+),
+refund_data AS (
+    -- Calcular reembolsos por afiliado
+    SELECT 
+        cp.id AS participant_id,
+        COUNT(DISTINCT t.id) AS refunded_transactions,
+        ABS(SUM(pc.amount)) AS refunded_commission_amount -- Considerando que estornos são registrados como valores negativos
+    FROM 
+        commission_participants cp
+    JOIN 
+        platform_commission pc ON cp.id = pc.participant_id
+    JOIN 
+        transactions t ON pc.transaction_id = t.id
+    JOIN 
+        transaction_statuses ts ON t.status_id = ts.id
+    WHERE 
+        pc.source LIKE '%REFUND%'
+        AND t.order_date BETWEEN '2023-01-01' AND '2023-11-30'
+    GROUP BY 
+        cp.id
+)
+SELECT 
+    ap.affiliate_name,
+    ap.affiliate_email,
+    ap.total_transactions,
+    ap.unique_customers,
+    ROUND(ap.total_sales_amount, 2) AS total_sales,
+    ROUND(ap.total_commission, 2) AS total_commission,
+    ROUND(ap.average_commission, 2) AS avg_commission,
+    ROUND((ap.total_commission * 100.0) / NULLIF(ap.total_sales_amount, 0), 1) AS commission_rate_pct,
+    COALESCE(rd.refunded_transactions, 0) AS refunded_transactions,
+    ROUND(COALESCE((rd.refunded_transactions * 100.0) / NULLIF(ap.total_transactions, 0), 0), 1) AS refund_rate_pct,
+    COALESCE(ROUND(rd.refunded_commission_amount, 2), 0) AS refunded_commission,
+    TO_CHAR(CURRENT_DATE - ap.last_sale_date, 'DD "dias"') AS days_since_last_sale,
+    DENSE_RANK() OVER (ORDER BY ap.total_commission DESC) AS commission_rank
+FROM 
+    affiliate_performance ap
+LEFT JOIN 
+    refund_data rd ON ap.participant_id = rd.participant_id
+ORDER BY 
+    ap.total_commission DESC;
+```
+
+
+**Interpretação dos Resultados**:
+- `total_transactions`: Número total de vendas realizadas pelo afiliado
+- `unique_customers`: Número de clientes únicos trazidos pelo afiliado
+- `commission_rate_pct`: Percentual médio de comissão sobre o valor total de vendas
+- `refund_rate_pct`: Taxa de reembolso das vendas do afiliado (indicador de qualidade)
+- `days_since_last_sale`: Tempo desde a última venda (inatividade)
+
+
+**Otimização**:
+- Utilize índices em `platform_commission.participant_id` e `platform_commission.source`
+- Considere criar índices compostos para melhorar a performance das junções
+
+
+**Insights Esperados**:
+- Identificação de afiliados de alto desempenho para programas especiais
+- Detecção de afiliados com altas taxas de reembolso (possível tráfego de baixa qualidade)
+- Afiliados inativos (alto valor em `days_since_last_sale`) que podem precisar de reativação
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+### Comparativo de Canais de Aquisição
+
+
+**Propósito**: Comparar a eficácia de diferentes canais de marketing e afiliação na geração de vendas, retenção de clientes e lucratividade.
+
+
+```sql
+-- Desempenho comparativo de canais de aquisição
+WITH acquisition_channels AS (
+    SELECT 
+        CASE 
+            WHEN t.tracking_source IS NULL OR t.tracking_source = '' THEN 'Direto/Desconhecido'
+            WHEN t.tracking_source LIKE 'aff_%' THEN 'Afiliado'
+            WHEN t.tracking_source LIKE 'fb_%' THEN 'Facebook'
+            WHEN t.tracking_source LIKE 'ig_%' THEN 'Instagram'
+            WHEN t.tracking_source LIKE 'gg_%' THEN 'Google'
+            WHEN t.tracking_source LIKE 'yt_%' THEN 'YouTube'
+            WHEN t.tracking_source LIKE 'em_%' THEN 'Email'
+            ELSE 'Outros'
+        END AS channel,
+        t.id AS transaction_id,
+        t.customer_id,
+        t.offer_price,
+        t.platform_fee_amount,
+        t.partner_commission_amount,
+        t.producer_net_amount,
+        t.is_subscription,
+        t.order_date,
+        ts.status
+    FROM 
+        transactions t
+    JOIN 
+        transaction_statuses ts ON t.status_id = ts.id
+    WHERE 
+        t.order_date BETWEEN '2023-01-01' AND '2023-11-30'
+),
+channel_metrics AS (
+    SELECT 
+        channel,
+        COUNT(DISTINCT transaction_id) AS total_transactions,
+        COUNT(DISTINCT customer_id) AS unique_customers,
+        SUM(CASE WHEN status = 'Aprovada' THEN offer_price ELSE 0 END) AS total_revenue,
+        SUM(CASE WHEN status = 'Reembolsada' THEN offer_price ELSE 0 END) AS refunded_amount,
+        COUNT(CASE WHEN status = 'Reembolsada' THEN transaction_id END) AS refunded_count,
+        SUM(CASE WHEN status = 'Aprovada' THEN producer_net_amount ELSE 0 END) AS net_revenue,
+        COUNT(CASE WHEN is_subscription = true THEN transaction_id END) AS subscription_count,
+        COUNT(CASE WHEN is_subscription = true THEN customer_id END) AS subscription_customers
+    FROM 
+        acquisition_channels
+    GROUP BY 
+        channel
+),
+channel_value_metrics AS (
+    -- Calcular métricas complementares por canal
+    SELECT 
+        channel,
+        total_transactions,
+        unique_customers,
+        ROUND(total_revenue, 2) AS total_revenue,
+        ROUND(refunded_amount, 2) AS refunded_amount,
+        refunded_count,
+        ROUND((refunded_count * 100.0) / NULLIF(total_transactions, 0), 1) AS refund_rate_pct,
+        ROUND(net_revenue, 2) AS net_revenue,
+        ROUND((net_revenue * 100.0) / NULLIF(total_revenue, 0), 1) AS margin_pct,
+        ROUND(total_revenue / NULLIF(unique_customers, 0), 2) AS revenue_per_customer,
+        ROUND(total_revenue / NULLIF(total_transactions, 0), 2) AS average_order_value,
+        subscription_count,
+        subscription_customers,
+        ROUND((subscription_customers * 100.0) / NULLIF(unique_customers, 0), 1) AS subscription_conversion_pct
+    FROM 
+        channel_metrics
+)
+SELECT *
+FROM 
+    channel_value_metrics
+ORDER BY 
+    total_revenue DESC;
+```
+
+
+**Interpretação dos Resultados**:
+- `refund_rate_pct`: Taxa de reembolso por canal (indicador de qualidade do tráfego)
+- `margin_pct`: Margem percentual após descontar taxas e comissões
+- `revenue_per_customer`: Valor médio gerado por cliente de cada canal
+- `subscription_conversion_pct`: Percentual de clientes convertidos em assinantes
+
+
+**Otimização**:
+- Esta análise depende de uma boa segmentação dos canais via `tracking_source`
+- Considere expandir a lógica CASE para capturar canais específicos relevantes para o seu negócio
+
+
+**Insights Esperados**:
+- Canais com maior valor por cliente são candidatos a mais investimento
+- Canais com alta taxa de reembolso podem precisar de melhor qualificação
+- Canais com alta conversão para assinatura são ideais para produtos recorrentes
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+## Otimização e Monitoramento
+
+
+### Monitoramento de Índices e Performance de Consultas
+
+
+**Propósito**: Identificar tabelas e consultas que podem se beneficiar de otimização, analisando estatísticas de uso de índices e tempos de execução.
+
+
+```sql
+-- Análise de uso de índices e tempos de consulta (requer permissões adequadas)
+-- Esta consulta exige acesso às tabelas do sistema PostgreSQL
+
+
+-- 1. Índices menos utilizados (candidatos a remoção)
+SELECT 
+    schemaname || '.' || relname AS table_name,
+    indexrelname AS index_name,
+    idx_scan AS index_scans,
+    pg_size_pretty(pg_relation_size(idxoid)) AS index_size,
+    indexdef AS index_definition
+FROM 
+    pg_stat_user_indexes
+JOIN 
+    pg_indexes ON pg_stat_user_indexes.indexrelname = pg_indexes.indexname
+    AND pg_stat_user_indexes.schemaname = pg_indexes.schemaname
+WHERE 
+    schemaname NOT LIKE 'pg_%'
+    AND idx_scan < 50  -- Poucos scans (ajuste conforme necessário)
+    AND pg_relation_size(idxoid) > 1000000  -- Índices relativamente grandes (>1MB)
+ORDER BY 
+    idx_scan ASC, pg_relation_size(idxoid) DESC;
+
+
+-- 2. Tabelas mais acessadas (candidatas a otimização)
+SELECT 
+    schemaname || '.' || relname AS table_name,
+    seq_scan,
+    seq_tup_read,
+    idx_scan,
+    idx_tup_fetch,
+    n_tup_ins AS inserts,
+    n_tup_upd AS updates,
+    n_tup_del AS deletes,
+    n_live_tup AS live_rows,
+    n_dead_tup AS dead_rows,
+    ROUND((n_dead_tup * 100.0) / NULLIF(n_live_tup + n_dead_tup, 0), 2) AS dead_row_pct
+FROM 
+    pg_stat_user_tables
+WHERE 
+    schemaname NOT LIKE 'pg_%'
+ORDER BY 
+    coalesce(seq_scan, 0) + coalesce(idx_scan, 0) DESC
+LIMIT 
+    20;
+
+
+-- 3. Consultas mais lentas (candidatas a otimização)
+SELECT 
+    substring(query, 1, 100) AS short_query,
+    round(total_exec_time::numeric, 2) AS total_time_ms,
+    calls,
+    round(mean_exec_time::numeric, 2) AS mean_time_ms,
+    round((100 * total_exec_time / sum(total_exec_time) OVER ()), 2) AS percentage_overall
+FROM 
+    pg_stat_statements
+WHERE 
+    query NOT LIKE '%pg_stat_statements%'
+ORDER BY 
+    total_exec_time DESC
+LIMIT 
+    20;
+```
+
+
+**Interpretação dos Resultados**:
+
+
+**1. Índices Não Utilizados**:
+- Índices com poucas consultas (`index_scans`) são candidatos a remoção
+- Remover índices não utilizados pode melhorar performance de escrita e reduzir espaço em disco
+
+
+**2. Tabelas Muito Acessadas**:
+- Tabelas com muitos `seq_scan` e poucos `idx_scan` podem precisar de índices adicionais
+- Alto percentual de `dead_rows` indica necessidade de VACUUM mais frequente
+
+
+**3. Consultas Lentas**:
+- Consultas com alto `mean_time_ms` são candidatas a otimização
+- Consultas frequentes (`calls`) com tempo moderado também são prioritárias
+
+
+**Otimização**:
+- Esta consulta requer extensões como `pg_stat_statements` ativas
+- Ideal para execução periódica e monitoramento contínuo
+
+
+**Notas Adicionais**:
+- Após identificar consultas lentas, use `EXPLAIN ANALYZE` para aprofundar a análise
+- Otimização deve balancear necessidades de leitura e escrita
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+### Auditoria de Integridade de Dados
+
+
+**Propósito**: Verificar a integridade e consistência dos dados, identificando registros órfãos, valores anômalos ou inconsistências entre tabelas relacionadas.
+
+
+```sql
+-- Verificar integridade e consistência dos dados
+
+
+-- 1. Transações sem itens associados
+SELECT 
+    t.id AS transaction_id,
+    t.transaction_id AS external_id,
+    t.order_date,
+    ts.status
+FROM 
+    transactions t
+LEFT JOIN 
+    transaction_items ti ON t.id = ti.transaction_id
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    ti.id IS NULL
+    AND ts.status = 'Aprovada'
+ORDER BY 
+    t.order_date DESC;
+
+
+-- 2. Transações marcadas como assinatura mas sem vínculo com assinatura
+SELECT 
+    t.id AS transaction_id,
+    t.transaction_id AS external_id,
+    t.order_date,
+    ts.status
+FROM 
+    transactions t
+JOIN 
+    transaction_statuses ts ON t.status_id = ts.id
+WHERE 
+    t.is_subscription = true
+    AND t.subscription_id IS NULL
+    AND ts.status = 'Aprovada'
+ORDER BY 
+    t.order_date DESC;
+
+
+-- 3. Comissões sem participante válido
+SELECT 
+    pc.id AS commission_id,
+    pc.transaction_id,
+    pc.participant_id,
+    pc.amount,
+    pc.source,
+    pc.created_at
+FROM 
+    platform_commission pc
+LEFT JOIN 
+    commission_participants cp ON pc.participant_id = cp.id
+WHERE 
+    cp.id IS NULL
+ORDER BY 
+    pc.created_at DESC;
+
+
+-- 4. Assinaturas com inconsistências de data
+SELECT 
+    s.id AS subscription_id,
+    s.subscription_id AS external_id,
+    s.start_date,
+    s.end_date,
+    s.cancel_date,
+    ts.status
+FROM 
+    subscriptions s
+JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+WHERE 
+    (s.end_date IS NOT NULL AND s.end_date < s.start_date)
+    OR (s.cancel_date IS NOT NULL AND s.end_date IS NULL)
+    OR (ts.status IN ('Cancelada pelo Cliente', 'Cancelada por Inadimplência') AND s.cancel_date IS NULL)
+    OR (ts.status = 'Ativa' AND s.end_date IS NOT NULL AND s.end_date < CURRENT_DATE)
+ORDER BY 
+    s.start_date DESC;
+
+
+-- 5. Valores financeiros anômalos (outliers significativos)
+WITH transaction_stats AS (
+    SELECT 
+        AVG(offer_price) AS avg_price,
+        STDDEV(offer_price) AS stddev_price,
+        AVG(platform_fee_amount) AS avg_fee,
+        STDDEV(platform_fee_amount) AS stddev_fee
+    FROM 
+        transactions
+    WHERE
+        offer_price > 0
+)
+SELECT 
+    t.id AS transaction_id,
+    t.transaction_id AS external_id,
+    t.offer_price,
+    t.platform_fee_amount,
+    t.partner_commission_amount,
+    t.producer_net_amount,
+    t.order_date,
+    p.name AS product_name
+FROM 
+    transactions t
+JOIN 
+    transaction_items ti ON t.id = ti.transaction_id
+JOIN 
+    products p ON ti.product_id = p.id
+CROSS JOIN 
+    transaction_stats ts
+WHERE 
+    (t.offer_price > ts.avg_price + 3 * ts.stddev_price OR t.offer_price < ts.avg_price - 3 * ts.stddev_price)
+    OR (t.platform_fee_amount > ts.avg_fee + 3 * ts.stddev_fee)
+    OR (t.producer_net_amount < 0 AND t.offer_price > 0)
+    OR (t.offer_price < t.platform_fee_amount + t.partner_commission_amount)
+ORDER BY 
+    t.order_date DESC;
+```
+
+
+**Interpretação dos Resultados**:
+
+
+**1. Transações sem Itens**:
+- Podem indicar problemas na sincronização de dados ou falhas no processo de venda
+- Afetam análises de produtos e podem criar inconsistências em relatórios
+
+
+**2. Transações de Assinatura sem Vínculo**:
+- Falha na associação entre transação e assinatura correspondente
+- Pode afetar métricas de MRR e análises de ciclo de vida de assinatura
+
+
+**3. Comissões Órfãs**:
+- Comissões associadas a participantes inexistentes, possivelmente devido a exclusões indevidas
+- Risco de pagamentos incorretos ou falta de rastreabilidade
+
+
+**4. Inconsistências de Data em Assinaturas**:
+- Datas de início posteriores às datas de término
+- Assinaturas canceladas sem data de cancelamento registrada
+- Assinaturas ativas com data de término no passado
+
+
+**5. Valores Financeiros Anômalos**:
+- Transações com valores muito acima ou abaixo da média (possíveis erros)
+- Inconsistências na matemática financeira (net_amount negativo, taxas maiores que o valor total)
+
+
+**Otimização**:
+- Executar periodicamente como parte de rotinas de manutenção
+- Considerar a criação de gatilhos (triggers) para prevenir algumas inconsistências
+
+
+**Ações Recomendadas**:
+- Corrigir registros inconsistentes identificados
+- Implementar validações adicionais em nível de aplicação
+- Criar rotinas automáticas de verificação
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+## Consultas para Casos de Uso Específicos
+
+
+### Identificação de Clientes para Recuperação
+
+
+**Propósito**: Identificar assinantes que cancelaram recentemente ou estão em risco de cancelamento, para ações de retenção ou recuperação.
+
+
+```sql
+-- Identificação de clientes para campanhas de reativação/recuperação
+
+
+-- 1. Assinantes que cancelaram nos últimos 30 dias
+SELECT 
+    c.id AS customer_id,
+    c.email,
+    c.name,
+    s.subscription_id AS external_subscription_id,
+    p.name AS plan_name,
+    pr.name AS product_name,
+    s.cancel_date,
+    s.start_date,
+    EXTRACT(DAY FROM (s.cancel_date - s.start_date)) AS subscription_lifetime_days,
+    ts.status AS current_status,
+    ssh.reason AS cancellation_reason
+FROM 
+    customers c
+JOIN 
+    subscriptions s ON c.id = s.customer_id
+JOIN 
+    plans p ON s.plan_id = p.id
+JOIN 
+    products pr ON p.product_id = pr.id
+JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+LEFT JOIN 
+    subscription_status_history ssh ON s.id = ssh.subscription_id
+    AND ssh.status_id = s.status_id -- Pega a entrada de histórico correspondente ao status atual
+WHERE 
+    ts.status IN ('Cancelada pelo Cliente')
+    AND s.cancel_date >= CURRENT_DATE - INTERVAL '30 days'
+    -- Opcional: filtrar por produtos/planos específicos
+    -- AND pr.name = 'Produto XYZ'
+ORDER BY 
+    s.cancel_date DESC;
+
+
+-- 2. Assinantes inativos (sem login ou sem uso) mas ainda pagando
+-- (Conceitual - exigiria integração com sistema de autenticação/usage)
+/*
+SELECT
+    c.id AS customer_id,
+    c.email,
+    c.name,
+    s.subscription_id AS external_subscription_id,
+    p.name AS plan_name,
+    pr.name AS product_name,
+    s.start_date,
+    -- Dados conceituais de uso
+    last_login_date,
+    EXTRACT(DAY FROM (CURRENT_DATE - last_login_date)) AS days_since_last_login,
+    usage_count_last_30_days
+FROM
+    customers c
+JOIN
+    subscriptions s ON c.id = s.customer_id
+JOIN
+    plans p ON s.plan_id = p.id
+JOIN
+    products pr ON p.product_id = pr.id
+JOIN
+    transaction_statuses ts ON s.status_id = ts.id
+LEFT JOIN
+    customer_usage cu ON c.id = cu.customer_id -- Tabela conceitual
+WHERE
+    ts.status = 'Ativa'
+    AND (
+        last_login_date < CURRENT_DATE - INTERVAL '60 days'
+        OR usage_count_last_30_days < 2
+    )
+ORDER BY
+    last_login_date ASC;
+*/
+
+
+-- 3. Assinantes com falha na última cobrança (inadimplentes)
+SELECT 
+    c.id AS customer_id,
+    c.email,
+    c.name,
+    s.subscription_id AS external_subscription_id,
+    p.name AS plan_name,
+    s.next_billing_date,
+    ts.status AS current_status,
+    (SELECT MAX(ssh.change_date)
+     FROM subscription_status_history ssh
+     WHERE ssh.subscription_id = s.id
+     AND ssh.status_id = (SELECT id FROM transaction_statuses WHERE status = 'Inadimplente')) AS last_default_date,
+    COUNT(DISTINCT t.id) AS total_payments_history,
+    (SELECT COUNT(*)
+     FROM transactions t2
+     WHERE t2.subscription_id = s.id
+     AND t2.status_id = (SELECT id FROM transaction_statuses WHERE status = 'Aprovada')) AS successful_payments
+FROM 
+    customers c
+JOIN 
+    subscriptions s ON c.id = s.customer_id
+JOIN 
+    transaction_statuses ts ON s.status_id = ts.id
+JOIN 
+    plans p ON s.plan_id = p.id
+LEFT JOIN 
+    transactions t ON s.id = t.subscription_id
+WHERE 
+    ts.status = 'Inadimplente'
+    AND s.next_billing_date < CURRENT_DATE
+GROUP BY 
+    c.id, c.email, c.name, s.subscription_id, p.name, s.next_billing_date, ts.status, s.id
+ORDER BY 
+    s.next_billing_date;
+```
+
+
+**Interpretação dos Resultados**:
+
+
+**1. Assinantes Cancelados Recentemente**:
+- São candidatos ideais para campanhas de reativação
+- O motivo do cancelamento (`cancellation_reason`) é crucial para personalizar a abordagem
+- O tempo de vida da assinatura (`subscription_lifetime_days`) pode indicar se houve valor percebido
+
+
+**2. Assinantes Inativos** (consulta conceitual):
+- Clientes que pagam mas não utilizam o produto estão em alto risco de cancelamento
+- Podem ser alvo de campanhas educativas ou de reengajamento
+
+
+**3. Assinantes Inadimplentes**:
+- Falhas de pagamento que podem ser por problemas técnicos ou cartões expirados
+- A proporção entre `successful_payments` e `total_payments_history` indica a qualidade do histórico de pagamentos
+- Clientes com bom histórico merecem mais tentativas de recuperação
+
+
+**Otimização**:
+- As consultas podem ser computacionalmente intensivas devido às múltiplas junções
+- Considere ajustar os períodos de tempo conforme a política de retenção da empresa
+
+
+**Ações Recomendadas**:
+- Segmentar a comunicação com base no motivo de cancelamento/inadimplência
+- Priorizar clientes com maior tempo de vida ou maior gasto histórico
+- Oferecer incentivos personalizados para reativação (descontos, benefícios extras)
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+### Previsão de Receita Futura
+
+
+**Propósito**: Projetar a receita futura com base nas assinaturas ativas e padrões históricos, ajudando no planejamento financeiro e de crescimento.
+
+
+```sql
+-- Projeção de receita futura com base em assinaturas existentes
+
+
+-- 1. Projeção de MRR para os próximos 6 meses baseada em assinaturas ativas
+WITH RECURSIVE future_months AS (
+    SELECT
+        CURRENT_DATE AS month_date
+    UNION ALL
+    SELECT
+        (month_date + INTERVAL '1 month')::date
+    FROM
+        future_months
+    WHERE
+        month_date < CURRENT_DATE + INTERVAL '6 months'
+),
+normalized_mrr AS (
+    -- Normalizar valor recorrente por assinatura
+    SELECT
+        s.id AS subscription_id,
+        p.price AS base_price,
+        CASE
+            WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+            WHEN p.recurrence_period = 'QUARTER' THEN p.price / 3
+            WHEN p.recurrence_period = 'SEMIANNUAL' THEN p.price / 6
+            WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33
+            ELSE p.price
+        END AS monthly_recurring_revenue,
+        s.start_date,
+        s.end_date,
+        -- Se max_cycles é NULL ou 0, consideramos como infinito
+        CASE
+            WHEN s.max_cycles IS NULL OR s.max_cycles = 0 THEN NULL
+            ELSE s.start_date + (s.max_cycles * 
+                CASE
+                    WHEN p.recurrence_period = 'YEAR' THEN INTERVAL '1 year'
+                    WHEN p.recurrence_period = 'QUARTER' THEN INTERVAL '3 months'
+                    WHEN p.recurrence_period = 'SEMIANNUAL' THEN INTERVAL '6 months'
+                    WHEN p.recurrence_period = 'WEEK' THEN INTERVAL '7 days'
+                    ELSE INTERVAL '1 month'
+                END)
+        END AS max_end_date
+    FROM
+        subscriptions s
+    JOIN
+        plans p ON s.plan_id = p.id
+    JOIN
+        transaction_statuses ts ON s.status_id = ts.id
+    WHERE
+        ts.status = 'Ativa'
+        AND p.currency_code = 'BRL' -- Filtrar por moeda para consistência
+)
+SELECT
+    DATE_TRUNC('month', fm.month_date)::date AS projection_month,
+    COUNT(DISTINCT nm.subscription_id) AS projected_active_subscriptions,
+    ROUND(SUM(nm.monthly_recurring_revenue), 2) AS projected_mrr,
+    ROUND(SUM(nm.monthly_recurring_revenue) * 12, 2) AS projected_arr
+FROM
+    future_months fm
+LEFT JOIN
+    normalized_mrr nm ON
+        DATE_TRUNC('month', fm.month_date) >= DATE_TRUNC('month', nm.start_date)
+        AND (
+            nm.end_date IS NULL
+            OR DATE_TRUNC('month', fm.month_date) <= DATE_TRUNC('month', nm.end_date)
+        )
+        AND (
+            nm.max_end_date IS NULL
+            OR DATE_TRUNC('month', fm.month_date) <= DATE_TRUNC('month', nm.max_end_date)
+        )
+GROUP BY
+    DATE_TRUNC('month', fm.month_date)
+ORDER BY
+    projection_month;
+
+
+-- 2. Projeção mais sofisticada considerando churn histórico e crescimento
+WITH historical_churn AS (
+    -- Calcular taxa de churn média dos últimos 3 meses
+    WITH monthly_metrics AS (
+        SELECT 
+            DATE_TRUNC('month', date_series)::date AS month_start,
+            (DATE_TRUNC('month', date_series) + INTERVAL '1 month - 1 day')::date AS month_end,
+            COUNT(DISTINCT CASE 
+                WHEN s.start_date < DATE_TRUNC('month', date_series)
+                    AND (s.end_date IS NULL OR s.end_date > (DATE_TRUNC('month', date_series) + INTERVAL '1 month - 1 day'))
+                THEN s.id 
+            END) AS active_start,
+            COUNT(DISTINCT CASE 
+                WHEN s.end_date BETWEEN DATE_TRUNC('month', date_series) AND (DATE_TRUNC('month', date_series) + INTERVAL '1 month - 1 day')
+                    AND ts.status IN ('Cancelada pelo Cliente', 'Cancelada por Inadimplência')
+                THEN s.id 
+            END) AS churned_subscribers
+        FROM 
+            GENERATE_SERIES(
+                (CURRENT_DATE - INTERVAL '3 months')::date,
+                CURRENT_DATE,
+                '1 month'::interval
+            ) AS date_series
+        LEFT JOIN 
+            subscriptions s ON true
+        LEFT JOIN 
+            transaction_statuses ts ON s.status_id = ts.id
+        GROUP BY 
+            DATE_TRUNC('month', date_series)
+    )
+    SELECT 
+        AVG(CASE WHEN active_start > 0 THEN churned_subscribers::decimal / active_start ELSE 0 END) AS avg_monthly_churn_rate
+    FROM 
+        monthly_metrics
+),
+new_subscription_growth AS (
+    -- Analisar crescimento médio de novas assinaturas nos últimos 3 meses
+    SELECT
+        AVG(new_subs) AS avg_monthly_new_subscriptions
+    FROM (
+        SELECT
+            DATE_TRUNC('month', s.start_date)::date AS month,
+            COUNT(*) AS new_subs
+        FROM
+            subscriptions s
+        WHERE
+            s.start_date >= CURRENT_DATE - INTERVAL '3 months'
+        GROUP BY
+            DATE_TRUNC('month', s.start_date)
+    ) AS monthly_new_subs
+),
+current_active_subscriptions AS (
+    -- Obter assinaturas atualmente ativas e seu MRR
+    SELECT
+        COUNT(*) AS active_count,
+        SUM(
+            CASE
+                WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+                WHEN p.recurrence_period = 'QUARTER' THEN p.price / 3
+                WHEN p.recurrence_period = 'SEMIANNUAL' THEN p.price / 6
+                WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33
+                ELSE p.price
+            END
+        ) AS total_current_mrr,
+        AVG(
+            CASE
+                WHEN p.recurrence_period = 'YEAR' THEN p.price / 12
+                WHEN p.recurrence_period = 'QUARTER' THEN p.price / 3
+                WHEN p.recurrence_period = 'SEMIANNUAL' THEN p.price / 6
+                WHEN p.recurrence_period = 'WEEK' THEN p.price * 4.33
+                ELSE p.price
+            END
+        ) AS avg_subscription_mrr
+    FROM
+        subscriptions s
+    JOIN
+        plans p ON s.plan_id = p.id
+    JOIN
+        transaction_statuses ts ON s.status_id = ts.id
+    WHERE
+        ts.status = 'Ativa'
+        AND p.currency_code = 'BRL'
+),
+projection_data AS (
+    SELECT
+        hc.avg_monthly_churn_rate,
+        nsg.avg_monthly_new_subscriptions,
+        cas.active_count,
+        cas.total_current_mrr,
+        cas.avg_subscription_mrr
+    FROM
+        historical_churn hc,
+        new_subscription_growth nsg,
+        current_active_subscriptions cas
+),
+projected_growth AS (
+    -- Projeção mês a mês para os próximos 12 meses
+    SELECT
+        0 AS month_number,
+        CURRENT_DATE AS month_date,
+        pd.active_count AS projected_subscribers,
+        pd.total_current_mrr AS projected_mrr
+    FROM
+        projection_data pd
+    
+    UNION ALL
+    
+    SELECT
+        pg.month_number + 1 AS month_number,
+        (pg.month_date + INTERVAL '1 month')::date AS month_date,
+        -- Fórmula: Assinantes Atuais - Churn + Novos Assinantes
+        ROUND(pg.projected_subscribers * (1 - pd.avg_monthly_churn_rate) + pd.avg_monthly_new_subscriptions) AS projected_subscribers,
+        ROUND((pg.projected_subscribers * (1 - pd.avg_monthly_churn_rate) + pd.avg_monthly_new_subscriptions) * pd.avg_subscription_mrr, 2) AS projected_mrr
+    FROM
+        projected_growth pg,
+        projection_data pd
+    WHERE
+        pg.month_number < 12  -- Projetar 12 meses à frente
+)
+SELECT
+    month_number,
+    TO_CHAR(month_date, 'YYYY-MM') AS month,
+    projected_subscribers,
+    projected_mrr,
+    projected_mrr * 12 AS projected_arr,
+    CASE
+        WHEN month_number > 0 THEN
+            ROUND(((projected_mrr - LAG(projected_mrr) OVER (ORDER BY month_number)) * 100.0 / 
+                  NULLIF(LAG(projected_mrr) OVER (ORDER BY month_number), 0)), 1)
+        ELSE NULL
+    END AS mrr_growth_pct
+FROM
+    projected_growth
+ORDER BY
+    month_number;
+```
+
+
+**Interpretação dos Resultados**:
+
+
+**1. Projeção de MRR Baseada em Assinaturas Ativas**:
+- Esta projeção considera apenas assinaturas existentes e sua duração prevista
+- Útil para estimar o "MRR comprometido" sem crescimento adicional
+
+
+**2. Projeção com Churn e Crescimento**:
+- Mais realista, incorpora taxas históricas de churn e aquisição de novos assinantes
+- Demonstra tanto crescimento mês a mês quanto em relação ao ano anterior
+- `projected_arr` (Annual Recurring Revenue) é o MRR anualizado (× 12)
+
+
+**Otimização**:
+- A geração recursiva de séries temporais pode ser pesada; considere materializar resultados
+- Ajuste o horizonte de projeção conforme necessidade (atualmente 6 meses para projeção 1 e 12 meses para projeção 2)
+
+
+**Considerações Adicionais**:
+- Estas projeções não consideram potenciais alterações de preço ou lançamentos de novos produtos
+- Para modelos mais sofisticados, considere incluir sazonalidade e eventos específicos do negócio
+- Em empresas maiores, projete por segmentos de produto ou canais de aquisição separadamente
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+
+
+## Conclusão
+
+
+As consultas SQL apresentadas neste documento fornecem uma base abrangente para análise de dados e extração de métricas do banco de dados `joaocastanheira_bancodedados`. Elas cobrem aspectos críticos do negócio, desde receita e vendas até retenção de clientes, performance de afiliados e otimização técnica.
+
+
+### Aplicações Práticas
+
+
+Estas consultas podem ser utilizadas para:
+- Construir dashboards de monitoramento em tempo real
+- Gerar relatórios periódicos para stakeholders
+- Alimentar modelos de previsão e planejamento
+- Identificar oportunidades de crescimento e áreas de melhoria
+- Direcionar investimentos de marketing e desenvolvimento de produto
+
+
+### Recomendações para Uso Eficiente
+
+
+1. **Otimização de Performance**:
+   - Para consultas frequentes, considere criar views materializadas ou tabelas de agregação
+   - Monitore o plano de execução (EXPLAIN ANALYZE) para identificar gargalos
+   - Utilize índices adequados para melhorar o desempenho
+
+
+2. **Automação e Agendamento**:
+   - Configure a execução automática de consultas críticas em intervalos regulares
+   - Armazene resultados históricos para análise de tendências
+   - Implemente alertas para métricas que caiam abaixo de limiares aceitáveis
+
+
+3. **Adaptação às Necessidades Específicas**:
+   - Modifique os intervalos de data nas consultas conforme necessário
+   - Ajuste os filtros e agrupamentos para focar em segmentos específicos
+   - Combine consultas para criar análises mais complexas e insights mais profundos
+
+
+4. **Visualização e Comunicação**:
+   - Exporte os resultados para ferramentas de visualização como Tableau, Power BI ou Metabase
+   - Crie apresentações para diferentes públicos (executivos, equipe técnica, marketing)
+   - Estabeleça KPIs claros baseados nas métricas extraídas
+
+
+(Ref: Analytics Examples, ID analytics_examples_001)
+```
